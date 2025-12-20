@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>محول إحداثيات Marchich و Lat/Long (DMS)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --accent: #0d4b7b;
+  --accent-dark: #083251;
+  --success: #1c8f5a;
+  --card-shadow: 0 18px 45px rgba(13, 75, 123, 0.07);
+  --border-color: #dfe6f3;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  padding: 24px;
+  margin: 0;
+  background: linear-gradient(135deg, #e8efff, #f9fbff);
+  color: #1f2a37;
+}
+
+h1, h2 { color: #142038; }
+
+.container {
+  width: 100%;
+  max-width: 760px;
+  margin: auto;
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 28px;
+  box-shadow: var(--card-shadow);
+}
+
+label { display: block; margin-top: 12px; font-weight: 500; }
+
+select, input, button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: #fdfdfd;
+  font-size: 1rem;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+select:focus, input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(13, 75, 123, 0.12);
+  outline: none;
+}
+
+input[type="text"], input[type="number"], textarea, select, .result {
+  direction: ltr;
+  text-align: left;
+}
+
+.btntout {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: 0 12px 25px rgba(13, 75, 123, 0.24);
+}
+
+.btntout:hover { background: var(--accent-dark); }
+
+button {
+  background: var(--success);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: 0 10px 18px rgba(28, 143, 90, 0.25);
+}
+
+button:hover { background: #157244; }
+
+.download-btn {
+  background: #0d9488;
+  margin-top: 12px;
+  box-shadow: 0 12px 22px rgba(13, 148, 136, 0.25);
+}
+
+.download-btn:disabled,
+.btntout:disabled,
+button:disabled {
+  background: #c2c8d3;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.result {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f4fbf7;
+  border-left: 5px solid var(--success);
+  white-space: pre-wrap;
+  direction: ltr;
+  text-align: left;
+  border-radius: 16px;
+}
+
+.hint {
+  font-size: 0.95rem;
+  color: #4c566a;
+  margin-top: 6px;
+  direction: rtl;
+  text-align: right;
+}
+
+.csv-image {
+  display: none;
+  margin-top: 12px;
+  max-width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(20, 32, 56, 0.08);
+}
+
+.manual-box {
+  margin-top: 25px;
+  padding: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+}
+
+.manual-title { margin-top: 0; font-size: 1.25rem; }
+
+.manual-fields {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.manual-fields input { flex: 1 1 48%; }
+
+.manual-btn { margin-top: 14px; }
+
+.single-result { margin-top: 18px; }
+
+.dms-group { width: 100%; }
+
+.dms-group label { font-size: 0.95rem; margin-bottom: 6px; display: block; }
+
+.dms-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: nowrap;
+  align-items: center;
+  direction: ltr;
+}
+
+.dms-row input { flex: 1 1 auto; min-width: 80px; }
+
+.dms-row select { width: auto; min-width: 110px; }
+
+.hemisphere-select { flex: 1 1 100%; }
+
+#batchSection {
+  margin-top: 30px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 0;
+    background: #f4f6fb;
+  }
+
+  .container {
+    max-width: 100%;
+    border-radius: 0;
+    min-height: 100vh;
+    padding: 28px 18px 48px;
+    box-shadow: none;
+  }
+
+  h2 { font-size: 1.3rem; }
+  .manual-title { font-size: 1.2rem; }
+
+  .manual-fields {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .manual-fields input { flex: 1 1 100%; min-width: auto; }
+
+  .dms-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .dms-row input {
+    flex: 1 1 30%;
+    min-width: 62px;
+  }
+
+  .dms-row select {
+    width: 100%;
+    min-width: auto;
+  }
+
+  button, .btntout, .download-btn {
+    font-size: 1.05rem;
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .manual-box, #batchSection {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  .result {
+    font-size: 1rem;
+    border-left-width: 0;
+    border-radius: 18px;
+  }
+
+  select, input {
+    border-radius: 16px;
+    font-size: 1.05rem;
+  }
+}
+</style>
+</head>
+<body dir="rtl">
+
+<div class="container">
+  <h2>محول إحداثيات Marchich و Lat/Long (DMS) الخاص بالسي زغودي</h2>
+
+  <label>اختر نوع التحويل:</label>
+  <select id="conversionType">
+    <option value="marchich-to-latlong">Marchich Zone 1 → Lat/Long (درجة/دقيقة/ثانية)</option>
+    <option value="latlong-to-marchich">Lat/Long (درجة/دقيقة/ثانية) → Marchich Zone 1</option>
+  </select>
+
+  <div class="manual-box">
+    <h2 class="manual-title">تحويل قيمة واحدة</h2>
+    <p class="hint" id="manualHint"></p>
+    <div class="manual-fields" id="dmsFields">
+      <div class="dms-group">
+        <label>خط العرض (شمال/جنوب):</label>
+        <div class="dms-row">
+          <input type="text" id="latDeg" placeholder="درجة" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
+          <input type="text" id="latMin" placeholder="دقيقة" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
+          <input type="text" id="latSec" placeholder="ثانية" inputmode="decimal" oninput="sanitizeSeconds(this)" onblur="finalizeSeconds(this)">
+          <select id="latHemisphere" class="hemisphere-select">
+            <option value="N">شمال (N)</option>
+            <option value="S">جنوب (S)</option>
+          </select>
+        </div>
+      </div>
+      <div class="dms-group">
+        <label>خط الطول (شرق/غرب):</label>
+        <div class="dms-row">
+          <input type="text" id="lonDeg" placeholder="درجة" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
+          <input type="text" id="lonMin" placeholder="دقيقة" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
+          <input type="text" id="lonSec" placeholder="ثانية" inputmode="decimal" oninput="sanitizeSeconds(this)" onblur="finalizeSeconds(this)">
+          <select id="lonHemisphere" class="hemisphere-select">
+            <option value="E">شرق (E)</option>
+            <option value="W" selected>غرب (W)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="manual-fields" id="cartesianFields">
+      <input type="number" id="manualX" placeholder="X (Marchich)">
+      <input type="number" id="manualY" placeholder="Y (Marchich)">
+    </div>
+    <button class="manual-btn" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
+    <div class="result single-result" id="singleResult"></div>
+  </div>
+  <div id="batchSection">
+    <h2>تحويل عدة قيم </h2>
+    <label>اختر ملف CSV للإحداثيات (أعمدة X و Y):</label>
+    <input type="file" id="csvFile" accept=".csv">
+    <p class="hint" id="fileHint"></p>
+    <img src="modelcsvxy.JPG" alt="نموذج ملف CSV" id="csvModelImage" class="csv-image">
+
+    <button id="convertBtn" class="btntout" onclick="convertCSV()" disabled>تحويل جميع الإحداثيات</button>
+
+    <p class="hint" id="layoutHint">بعد التحويل، ضع قيمة Latitude في العمود A وقيمة Longitude في العمود B داخل ملف Excel قبل أي معالجة إضافية.</p>
+
+    <div class="result" id="result"></div>
+    <button id="downloadBtn" class="download-btn" onclick="downloadConvertedFile()" disabled>تحميل الملف المحوّل</button>
+  </div>
+</div>
+
+<script>
+  // تعريف نظام Marchich Zone 1
+  const marchich1 = "+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs";
+  const wgs84 = proj4.WGS84;
+  let lastConvertedRows = [];
+  let lastConvertedFields = null;
+  let lastConversionType = null;
+
+  function updateFileHint() {
+    const type = document.getElementById('conversionType').value;
+    const hint = document.getElementById('fileHint');
+    const manualHint = document.getElementById('manualHint');
+    const csvImage = document.getElementById('csvModelImage');
+    const fileInput = document.getElementById('csvFile');
+    const convertBtn = document.getElementById('convertBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const batchSection = document.getElementById('batchSection');
+    toggleManualFields(type);
+
+    if(type === "latlong-to-marchich") {
+      hint.innerText = "تحويل الملفات متاح فقط لاتجاه Marchich Zone 1 → Lat/Long. الرجاء استخدام التحويل اليدوي لهذا الاتجاه.";
+      manualHint.innerText = "أدخل خطوط الطول والعرض يدويًا بالدرجة والدقيقة والثانية (DMS) ليتم تحويلها إلى إحداثيات Marchich Zone 1 فورًا.";
+      if(batchSection) batchSection.style.display = 'none';
+      if(csvImage) {
+        csvImage.style.display = 'none';
+      }
+      if(fileInput) {
+        fileInput.value = '';
+        fileInput.disabled = true;
+      }
+      if(convertBtn) convertBtn.disabled = true;
+      if(downloadBtn) downloadBtn.disabled = true;
+      lastConvertedRows = [];
+      lastConvertedFields = null;
+    } else {
+      hint.innerText = "ارفع ملف CSV يضم عمودين فقط مسميين X و Y لقيم Marchich Zone 1 ليتم تحويلها إلى Lat/Long (DMS).";
+      manualHint.innerText = "أدخل إحداثيات Marchich Zone 1 يدويًا (X, Y) ليتم تحويلها إلى Lat/Long (DMS) فورًا.";
+      if(batchSection) batchSection.style.display = 'block';
+      if(csvImage) {
+        csvImage.src = 'modelcsvxy.JPG';
+        csvImage.style.display = 'block';
+      }
+      if(fileInput) fileInput.disabled = false;
+      updateConvertButtonState();
+    }
+  }
+
+  function toggleManualFields(type) {
+    const dmsFields = document.getElementById('dmsFields');
+    const cartesianFields = document.getElementById('cartesianFields');
+    if(type === "latlong-to-marchich") {
+      dmsFields.style.display = 'flex';
+      cartesianFields.style.display = 'none';
+    } else {
+      dmsFields.style.display = 'none';
+      cartesianFields.style.display = 'flex';
+    }
+  }
+
+  function dmsToDecimal(deg, min, sec, hemisphere) {
+    if(isNaN(deg) || isNaN(min) || isNaN(sec)) {
+      return NaN;
+    }
+    const absValue = Math.abs(deg) + (Math.abs(min) / 60) + (Math.abs(sec) / 3600);
+    const hemisphereSign = (hemisphere === 'S' || hemisphere === 'W') ? -1 : 1;
+    const degreeSign = deg < 0 ? -1 : 1;
+    return absValue * hemisphereSign * degreeSign;
+  }
+
+  function decimalToDMS(value, isLatitude) {
+    if(isNaN(value)) return null;
+    const absValue = Math.abs(value);
+    const degrees = Math.floor(absValue);
+    const minutesFloat = (absValue - degrees) * 60;
+    const minutes = Math.floor(minutesFloat);
+    const seconds = (minutesFloat - minutes) * 60;
+    const hemisphere = isLatitude ? 'N' : 'W';
+    return { degrees, minutes, seconds, hemisphere, isLatitude };
+  }
+
+  function padTwoDigits(value) {
+    return value < 10 ? `0${value}` : `${value}`;
+  }
+
+  function padSeconds(seconds) {
+    const str = seconds.toFixed(2);
+    return seconds < 10 ? `0${str}` : str;
+  }
+
+  function enforceTwoDigits(input) {
+    input.value = input.value.replace(/[^0-9]/g, '').slice(0, 2);
+  }
+
+  function sanitizeSeconds(input) {
+    let value = input.value.replace(/[^0-9.,]/g, '');
+    const decimalIndex = value.search(/[.,]/);
+    if(decimalIndex !== -1) {
+      const before = value.slice(0, decimalIndex + 1);
+      const after = value.slice(decimalIndex + 1).replace(/[.,]/g, '');
+      value = before + after;
+    }
+    input.value = value;
+  }
+
+  function finalizeSeconds(input) {
+    let value = input.value.trim();
+    if(value === '') return;
+    const usesComma = value.includes(',');
+    const usesDot = value.includes('.');
+    const normalized = value.replace(',', '.');
+    let num = parseFloat(normalized);
+    if(isNaN(num)) {
+      input.value = '';
+      return;
+    }
+    num = Math.min(59.99, Math.max(0, num));
+    if(usesComma || usesDot) {
+      const truncated = Math.floor(num * 100) / 100;
+      let str = truncated.toFixed(2);
+      if(usesComma && !usesDot) {
+        str = str.replace('.', ',');
+      }
+      input.value = str;
+    } else {
+      input.value = Math.round(num).toString();
+    }
+  }
+
+  function readSecondsValue(elementId) {
+    const raw = document.getElementById(elementId).value.trim();
+    if(raw === '') return NaN;
+    const normalized = raw.replace(',', '.');
+    const num = parseFloat(normalized);
+    if(isNaN(num)) return NaN;
+    const clamped = Math.min(59.99, Math.max(0, num));
+    return Math.floor(clamped * 100) / 100;
+  }
+
+  function formatDMS(dms) {
+    if(!dms) return '';
+    const degreeWidth = dms.isLatitude ? 2 : 3;
+    const degreeStr = dms.degrees.toString().padStart(degreeWidth, '0');
+    const minuteStr = padTwoDigits(dms.minutes);
+    const secondStr = padSeconds(dms.seconds);
+    return `${degreeStr}° ${minuteStr}' ${secondStr}" ${dms.hemisphere}`;
+  }
+
+  function normalizeDmsString(value) {
+    return value.toString()
+      .replace(/,/g, '.')
+      .replace(/″|”|“/g, '"')
+      .replace(/′|’|`/g, "'")
+      .replace(/º|˚/g, '°')
+      .trim();
+  }
+
+  function parseCsvDms(value, hemisphere) {
+    if(value === undefined || value === null) return NaN;
+    const normalized = normalizeDmsString(value);
+    const cleaned = normalized
+      .replace(/[NSEW]\s*$/i, '')
+      .replace(/"/g, '')
+      .trim();
+    const regex = /(-?\d+(?:\.\d+)?)\s*°\s*(\d+(?:\.\d+)?)\s*['′’]\s*(\d+(?:\.\d+)?)/;
+    const match = cleaned.match(regex);
+    if(!match) return NaN;
+    const deg = parseFloat(match[1]);
+    const min = parseFloat(match[2]);
+    const sec = parseFloat(match[3]);
+    const base = Math.abs(deg) + (Math.abs(min) / 60) + (Math.abs(sec) / 3600);
+    const degreeSign = deg < 0 ? -1 : 1;
+    const hemiSign = (hemisphere === 'S' || hemisphere === 'W') ? -1 : 1;
+    return base * degreeSign * hemiSign;
+  }
+
+  function getCsvField(row, targetKey) {
+    const normalizedTarget = normalizeKeyName(targetKey);
+    for (const key in row) {
+      if(!Object.prototype.hasOwnProperty.call(row, key)) continue;
+      if(typeof key !== 'string') continue;
+      if(normalizeKeyName(key) === normalizedTarget) {
+        return row[key];
+      }
+    }
+    return undefined;
+  }
+
+  function hasField(fields, targetKey) {
+    if(!Array.isArray(fields)) return false;
+    const normalizedKey = normalizeKeyName(targetKey);
+    return fields.some(field => {
+      if(field === undefined || field === null) return false;
+      return normalizeKeyName(field) === normalizedKey;
+    });
+  }
+
+  function normalizeKeyName(key) {
+    if(key === undefined || key === null) return '';
+    return key.toString().replace(/\ufeff/g, '').trim().toLowerCase();
+  }
+
+  function updateConvertButtonState() {
+    const fileInput = document.getElementById('csvFile');
+    const convertBtn = document.getElementById('convertBtn');
+    const type = document.getElementById('conversionType').value;
+    if(!convertBtn || !fileInput) return;
+    if(type !== 'marchich-to-latlong') {
+      convertBtn.disabled = true;
+      return;
+    }
+    convertBtn.disabled = fileInput.files.length === 0;
+  }
+
+  function convertCSV() {
+    const file = document.getElementById('csvFile').files[0];
+    const type = document.getElementById('conversionType').value;
+    const resultDiv = document.getElementById('result');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    lastConvertedRows = [];
+    lastConvertedFields = null;
+    lastConversionType = null;
+    if(downloadBtn) downloadBtn.disabled = true;
+
+    if(type !== "marchich-to-latlong") {
+      resultDiv.innerText = "تحويل الملفات متاح فقط لاتجاه Marchich Zone 1 → Lat/Long.";
+      return;
+    }
+
+    if (!file) {
+      resultDiv.innerHTML = "Veuillez d'abord sélectionner un fichier CSV.";
+      return;
+    }
+
+    Papa.parse(file, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: 'greedy',
+      complete: function(results) {
+        const data = results.data || [];
+        const fields = (results.meta && Array.isArray(results.meta.fields)) ? results.meta.fields : [];
+        if(!hasField(fields, 'X') || !hasField(fields, 'Y')) {
+          const existing = fields.length ? fields.join(', ') : 'بدون رؤوس واضحة';
+          resultDiv.innerText = `لم يتم العثور على عمودين باسم X و Y. الأعمدة الحالية في الملف: ${existing}`;
+          return;
+        }
+        let output = "الإحداثيات المحوّلة (عمود A = Latitude، عمود B = Longitude):\n\n";
+        const convertedRows = [];
+
+        data.forEach((row, index) => {
+          const xVal = getCsvField(row, 'X');
+          const yVal = getCsvField(row, 'Y');
+          if(xVal === undefined || yVal === undefined) return;
+          const x = parseFloat(xVal);
+          const y = parseFloat(yVal);
+          if(isNaN(x) || isNaN(y)) return;
+
+          const [lon, lat] = proj4(marchich1, wgs84, [x, y]);
+          const latDms = decimalToDMS(lat, true);
+          const lonDms = decimalToDMS(lon, false);
+          output += `Ligne ${index+1} : Latitude ${formatDMS(latDms)}, Longitude ${formatDMS(lonDms)}\n`;
+          convertedRows.push({ Latitude: formatDMS(latDms), Longitude: formatDMS(lonDms) });
+        });
+
+        if(!convertedRows.length) {
+          const attempted = data.length;
+          resultDiv.innerText = `لم يتم العثور على صفوف صالحة للتحويل بعد فحص ${attempted} صفًا. تأكد من أن كل صف يحتوي على قيم رقمية في عمودي X و Y.`;
+          return;
+        }
+
+        resultDiv.innerText = output;
+        lastConvertedRows = convertedRows;
+        lastConvertedFields = ['Latitude', 'Longitude'];
+        lastConversionType = type;
+        if(downloadBtn) downloadBtn.disabled = false;
+      }
+    });
+  }
+
+  function convertSingle() {
+    const type = document.getElementById('conversionType').value;
+    const resultDiv = document.getElementById('singleResult');
+
+    if(type === "latlong-to-marchich") {
+      const latDeg = parseFloat(document.getElementById('latDeg').value);
+      const latMin = parseFloat(document.getElementById('latMin').value);
+      const latSec = readSecondsValue('latSec');
+      const lonDeg = parseFloat(document.getElementById('lonDeg').value);
+      const lonMin = parseFloat(document.getElementById('lonMin').value);
+      const lonSec = readSecondsValue('lonSec');
+      const latHem = document.getElementById('latHemisphere').value;
+      const lonHem = document.getElementById('lonHemisphere').value;
+
+      const latitude = dmsToDecimal(latDeg, latMin, latSec, latHem);
+      const longitude = dmsToDecimal(lonDeg, lonMin, lonSec, lonHem);
+
+      if(isNaN(latitude) || isNaN(longitude)) {
+        resultDiv.innerText = "Veuillez saisir des degrés, minutes et secondes valides pour la latitude et la longitude.";
+        return;
+      }
+
+      const [xMarchich, yMarchich] = proj4(wgs84, marchich1, [longitude, latitude]);
+      const xInt = Math.round(xMarchich);
+      const yInt = Math.round(yMarchich);
+      resultDiv.innerText = `X = ${xInt}\nY = ${yInt}`;
+    } else {
+      const xInput = parseFloat(document.getElementById('manualX').value);
+      const yInput = parseFloat(document.getElementById('manualY').value);
+
+      if(isNaN(xInput) || isNaN(yInput)) {
+        resultDiv.innerText = "Veuillez saisir des valeurs numériques valides pour X et Y.";
+        return;
+      }
+
+      const [lon, lat] = proj4(marchich1, wgs84, [xInput, yInput]);
+      const latDms = decimalToDMS(lat, true);
+      const lonDms = decimalToDMS(lon, false);
+      resultDiv.innerText = `Latitude : ${formatDMS(latDms)}\nLongitude : ${formatDMS(lonDms)}`;
+    }
+  }
+
+  function downloadConvertedFile() {
+    if(!lastConvertedRows.length) {
+      alert('لا توجد نتائج متاحة للتحميل. الرجاء تنفيذ تحويل CSV أولاً.');
+      return;
+    }
+
+    const unparseInput = lastConvertedFields ? { fields: lastConvertedFields, data: lastConvertedRows } : lastConvertedRows;
+    const csvContent = Papa.unparse(unparseInput);
+    const bom = '\ufeff';
+    const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const prefix = lastConversionType === 'latlong-to-marchich' ? 'marchich' : 'latlong';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${prefix}-converted-${timestamp}.csv`;
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('conversionType').addEventListener('change', updateFileHint);
+  document.getElementById('csvFile').addEventListener('change', () => {
+    updateConvertButtonState();
+    lastConvertedRows = [];
+    lastConvertedFields = null;
+    const downloadBtn = document.getElementById('downloadBtn');
+    if(downloadBtn) downloadBtn.disabled = true;
+  });
+  updateFileHint();
+  updateConvertButtonState();
+</script>
+
+</body>
+</html>
