@@ -33,9 +33,9 @@
       <div class="dms-group">
         <label>خط العرض (شمال/جنوب):</label>
         <div class="dms-row">
-          <input type="text" id="latDeg" placeholder="درجة" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
-          <input type="text" id="latMin" placeholder="دقيقة" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
-          <input type="text" id="latSec" placeholder="ثانية" inputmode="decimal" oninput="sanitizeSeconds(this)" onblur="finalizeSeconds(this)">
+          <input type="text" id="latDeg" placeholder="درجة °" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
+          <input type="text" id="latMin" placeholder="دقيقة ′" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
+          <input type="text" id="latSec" placeholder="ثانية ″" inputmode="decimal" oninput="sanitizeSeconds(this)" onblur="finalizeSeconds(this)">
           <select id="latHemisphere" class="hemisphere-select">
             <option value="N">شمال (N)</option>
             <option value="S">جنوب (S)</option>
@@ -45,9 +45,9 @@
       <div class="dms-group">
         <label>خط الطول (شرق/غرب):</label>
         <div class="dms-row">
-          <input type="text" id="lonDeg" placeholder="درجة" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
-          <input type="text" id="lonMin" placeholder="دقيقة" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
-          <input type="text" id="lonSec" placeholder="ثانية" inputmode="decimal" oninput="sanitizeSeconds(this)" onblur="finalizeSeconds(this)">
+          <input type="text" id="lonDeg" placeholder="درجة °" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
+          <input type="text" id="lonMin" placeholder="دقيقة ′" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
+          <input type="text" id="lonSec" placeholder="ثانية ″" inputmode="decimal" oninput="sanitizeSeconds(this)" onblur="finalizeSeconds(this)">
           <select id="lonHemisphere" class="hemisphere-select">
             <option value="E">شرق (E)</option>
             <option value="W" selected>غرب (W)</option>
