@@ -7,8 +7,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 
 </style>
@@ -60,6 +62,13 @@
     <button class="manual-btn" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
     <div class="result single-result" id="singleResult"></div>
   </div>
+
+  <div class="map-box">
+    <h2>عرض النقطة على الخريطة</h2>
+    <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها.</p>
+    <div id="map"></div>
+  </div>
+
   <div id="batchSection">
     <h2>تحويل عدة قيم </h2>
     <label>اختر ملف CSV للإحداثيات (أعمدة X و Y):</label>
@@ -83,6 +92,42 @@
   let lastConvertedRows = [];
   let lastConvertedFields = null;
   let lastConversionType = null;
+  const defaultMapCenter = [33.9, -5.3];
+  let mapInstance = null;
+  let mapMarker = null;
+
+  function initMap() {
+    const mapElement = document.getElementById('map');
+    if(!mapElement || typeof L === 'undefined') {
+      return;
+    }
+    mapInstance = L.map(mapElement, {
+      zoomControl: true,
+      scrollWheelZoom: false
+    }).setView(defaultMapCenter, 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(mapInstance);
+
+    mapMarker = L.marker(defaultMapCenter).addTo(mapInstance).bindPopup('جاهز لاستقبال الإحداثيات');
+  }
+
+  function updateMap(latitude, longitude, labelText) {
+    if(!mapInstance || isNaN(latitude) || isNaN(longitude)) {
+      return;
+    }
+    const target = [latitude, longitude];
+    if(!mapMarker) {
+      mapMarker = L.marker(target).addTo(mapInstance);
+    } else {
+      mapMarker.setLatLng(target);
+    }
+    if(labelText) {
+      mapMarker.bindPopup(labelText).openPopup();
+    }
+    mapInstance.setView(target, 14);
+  }
 
   function updateFileHint() {
     const type = document.getElementById('conversionType').value;
@@ -381,6 +426,7 @@
       const xInt = Math.round(xMarchich);
       const yInt = Math.round(yMarchich);
       resultDiv.innerText = `X = ${xInt}\nY = ${yInt}`;
+      updateMap(latitude, longitude, 'الموقع الأصلي (Lat/Long)');
     } else {
       const xInput = parseFloat(document.getElementById('manualX').value);
       const yInput = parseFloat(document.getElementById('manualY').value);
@@ -394,6 +440,7 @@
       const latDms = decimalToDMS(lat, true);
       const lonDms = decimalToDMS(lon, false);
       resultDiv.innerText = `Latitude : ${formatDMS(latDms)}\nLongitude : ${formatDMS(lonDms)}`;
+      updateMap(lat, lon, 'النقطة المحوّلة إلى Lat/Long');
     }
   }
 
@@ -429,6 +476,7 @@
     const downloadBtn = document.getElementById('downloadBtn');
     if(downloadBtn) downloadBtn.disabled = true;
   });
+  initMap();
   updateFileHint();
   updateConvertButtonState();
 </script>
