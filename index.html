@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>محول إحداثيات Marchich و Lat/Long (DMS)</title>
+<title>محول إحداثيات Merchich و Lat/Long (DMS)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <link rel="stylesheet" href="style.css">
@@ -18,12 +18,12 @@
 <body dir="rtl">
 
 <div class="container">
-  <h2>محول إحداثيات Marchich و Lat/Long (DMS) الخاص بالسي زغودي</h2>
+  <h2>محول إحداثيات Merchich و Lat/Long (DMS) الخاص بالسي زغودي</h2>
 
   <label>اختر نوع التحويل:</label>
   <select id="conversionType">
-    <option value="marchich-to-latlong">Marchich Zone 1 → Lat/Long (درجة/دقيقة/ثانية)</option>
-    <option value="latlong-to-marchich">Lat/Long (درجة/دقيقة/ثانية) → Marchich Zone 1</option>
+    <option value="Merchich-to-latlong">Merchich Zone 1 → Lat/Long (درجة/دقيقة/ثانية)</option>
+    <option value="latlong-to-Merchich">Lat/Long (درجة/دقيقة/ثانية) → Merchich Zone 1</option>
   </select>
 
   <div class="manual-box">
@@ -56,8 +56,8 @@
       </div>
     </div>
     <div class="manual-fields" id="cartesianFields">
-      <input type="number" id="manualX" placeholder="X (Marchich)">
-      <input type="number" id="manualY" placeholder="Y (Marchich)">
+      <input type="number" id="manualX" placeholder="X (Merchich)">
+      <input type="number" id="manualY" placeholder="Y (Merchich)">
     </div>
     <button class="manual-btn" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
     <div class="result single-result" id="singleResult"></div>
@@ -86,8 +86,8 @@
 </div>
 
 <script>
-  // تعريف نظام Marchich Zone 1
-  const marchich1 = "+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs";
+  // تعريف نظام Merchich Zone 1
+  const Merchich1 = "+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs";
   const wgs84 = proj4.WGS84;
   let lastConvertedRows = [];
   let lastConvertedFields = null;
@@ -140,9 +140,9 @@
     const batchSection = document.getElementById('batchSection');
     toggleManualFields(type);
 
-    if(type === "latlong-to-marchich") {
-      hint.innerText = "تحويل الملفات متاح فقط لاتجاه Marchich Zone 1 → Lat/Long. الرجاء استخدام التحويل اليدوي لهذا الاتجاه.";
-      manualHint.innerText = "أدخل خطوط الطول والعرض يدويًا بالدرجة والدقيقة والثانية (DMS) ليتم تحويلها إلى إحداثيات Marchich Zone 1 فورًا.";
+    if(type === "latlong-to-Merchich") {
+      hint.innerText = "تحويل الملفات متاح فقط لاتجاه Merchich Zone 1 → Lat/Long. الرجاء استخدام التحويل اليدوي لهذا الاتجاه.";
+      manualHint.innerText = "أدخل خطوط الطول والعرض يدويًا بالدرجة والدقيقة والثانية (DMS) ليتم تحويلها إلى إحداثيات Merchich Zone 1 فورًا.";
       if(batchSection) batchSection.style.display = 'none';
       if(csvImage) {
         csvImage.style.display = 'none';
@@ -156,8 +156,8 @@
       lastConvertedRows = [];
       lastConvertedFields = null;
     } else {
-      hint.innerText = "ارفع ملف CSV يضم عمودين فقط مسميين X و Y لقيم Marchich Zone 1 ليتم تحويلها إلى Lat/Long (DMS).";
-      manualHint.innerText = "أدخل إحداثيات Marchich Zone 1 يدويًا (X, Y) ليتم تحويلها إلى Lat/Long (DMS) فورًا.";
+      hint.innerText = "ارفع ملف CSV يضم عمودين فقط مسميين X و Y لقيم Merchich Zone 1 ليتم تحويلها إلى Lat/Long (DMS).";
+      manualHint.innerText = "أدخل إحداثيات Merchich Zone 1 يدويًا (X, Y) ليتم تحويلها إلى Lat/Long (DMS) فورًا.";
       if(batchSection) batchSection.style.display = 'block';
       if(csvImage) {
         csvImage.src = 'modelcsvxy.JPG';
@@ -171,7 +171,7 @@
   function toggleManualFields(type) {
     const dmsFields = document.getElementById('dmsFields');
     const cartesianFields = document.getElementById('cartesianFields');
-    if(type === "latlong-to-marchich") {
+    if(type === "latlong-to-Merchich") {
       dmsFields.style.display = 'flex';
       cartesianFields.style.display = 'none';
     } else {
@@ -327,7 +327,7 @@
     const convertBtn = document.getElementById('convertBtn');
     const type = document.getElementById('conversionType').value;
     if(!convertBtn || !fileInput) return;
-    if(type !== 'marchich-to-latlong') {
+    if(type !== 'Merchich-to-latlong') {
       convertBtn.disabled = true;
       return;
     }
@@ -345,8 +345,8 @@
     lastConversionType = null;
     if(downloadBtn) downloadBtn.disabled = true;
 
-    if(type !== "marchich-to-latlong") {
-      resultDiv.innerText = "تحويل الملفات متاح فقط لاتجاه Marchich Zone 1 → Lat/Long.";
+    if(type !== "Merchich-to-latlong") {
+      resultDiv.innerText = "تحويل الملفات متاح فقط لاتجاه Merchich Zone 1 → Lat/Long.";
       return;
     }
 
@@ -378,7 +378,7 @@
           const y = parseFloat(yVal);
           if(isNaN(x) || isNaN(y)) return;
 
-          const [lon, lat] = proj4(marchich1, wgs84, [x, y]);
+          const [lon, lat] = proj4(Merchich1, wgs84, [x, y]);
           const latDms = decimalToDMS(lat, true);
           const lonDms = decimalToDMS(lon, false);
           output += `Ligne ${index+1} : Latitude ${formatDMS(latDms)}, Longitude ${formatDMS(lonDms)}\n`;
@@ -404,7 +404,7 @@
     const type = document.getElementById('conversionType').value;
     const resultDiv = document.getElementById('singleResult');
 
-    if(type === "latlong-to-marchich") {
+    if(type === "latlong-to-Merchich") {
       const latDeg = parseFloat(document.getElementById('latDeg').value);
       const latMin = parseFloat(document.getElementById('latMin').value);
       const latSec = readSecondsValue('latSec');
@@ -422,9 +422,9 @@
         return;
       }
 
-      const [xMarchich, yMarchich] = proj4(wgs84, marchich1, [longitude, latitude]);
-      const xInt = Math.round(xMarchich);
-      const yInt = Math.round(yMarchich);
+      const [xMerchich, yMerchich] = proj4(wgs84, Merchich1, [longitude, latitude]);
+      const xInt = Math.round(xMerchich);
+      const yInt = Math.round(yMerchich);
       resultDiv.innerText = `X = ${xInt}\nY = ${yInt}`;
       updateMap(latitude, longitude, 'الموقع الأصلي (Lat/Long)');
     } else {
@@ -436,7 +436,7 @@
         return;
       }
 
-      const [lon, lat] = proj4(marchich1, wgs84, [xInput, yInput]);
+      const [lon, lat] = proj4(Merchich1, wgs84, [xInput, yInput]);
       const latDms = decimalToDMS(lat, true);
       const lonDms = decimalToDMS(lon, false);
       resultDiv.innerText = `Latitude : ${formatDMS(latDms)}\nLongitude : ${formatDMS(lonDms)}`;
@@ -455,7 +455,7 @@
     const bom = '\ufeff';
     const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const prefix = lastConversionType === 'latlong-to-marchich' ? 'marchich' : 'latlong';
+    const prefix = lastConversionType === 'latlong-to-Merchich' ? 'Merchich' : 'latlong';
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `${prefix}-converted-${timestamp}.csv`;
 
