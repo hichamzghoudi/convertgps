@@ -21,7 +21,7 @@
 
 body {
   font-family: "Segoe UI", Tahoma, sans-serif;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 1.55;
   padding: 24px;
   margin: 0;
@@ -45,12 +45,13 @@ label { display: block; margin-top: 12px; font-weight: 600; }
 
 select, input, button {
   width: 100%;
-  padding: 14px;
+  padding: clamp(12px, 3vw, 18px);
   margin-top: 6px;
   border-radius: 16px;
   border: 1px solid var(--border-color);
   background: #fdfdfd;
-  font-size: 1.12rem;
+  font-size: 1.2rem;
+  min-height: 48px;
   transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -152,6 +153,8 @@ button:disabled {
 .manual-fields input {
   flex: 1 1 100%;
   min-width: auto;
+  font-size: 1.25rem;
+  min-height: 56px;
 }
 
 .manual-btn { margin-top: 14px; }
@@ -170,9 +173,19 @@ button:disabled {
   direction: ltr;
 }
 
-.dms-row input { flex: 1 1 auto; min-width: 80px; }
+  .dms-row input {
+    flex: 1 1 32%;
+    min-width: 110px;
+    font-size: 1.2rem;
+    min-height: 52px;
+  }
 
-.dms-row select { width: auto; min-width: 110px; }
+  .dms-row select {
+    width: auto;
+    min-width: 130px;
+    font-size: 1.2rem;
+    min-height: 52px;
+  }
 
 .hemisphere-select { flex: 1 1 100%; }
 
@@ -189,20 +202,20 @@ button:disabled {
   body {
     padding: 0;
     background: linear-gradient(180deg, #04112b, #062046);
-    font-size: 21px;
-    line-height: 1.7;
+    font-size: 24px;
+    line-height: 1.85;
   }
 
   .container {
     max-width: 100%;
     border-radius: 0;
     min-height: 100vh;
-    padding: 32px 18px 60px;
+    padding: 32px 0 60px;
     box-shadow: none;
   }
 
-  h2 { font-size: 1.6rem; }
-  .manual-title { font-size: 1.4rem; }
+  h2 { font-size: 1.75rem; }
+  .manual-title { font-size: 1.55rem; }
 
   .manual-fields {
     flex-direction: column;
@@ -228,8 +241,8 @@ button:disabled {
   }
 
   button, .btntout, .download-btn {
-    font-size: 1.22rem;
-    padding: 18px;
+    font-size: 1.4rem;
+    padding: clamp(16px, 5vw, 22px);
     border-radius: 18px;
   }
 
@@ -239,15 +252,18 @@ button:disabled {
   }
 
   .result {
-    font-size: 1.15rem;
+    font-size: 1.25rem;
     border-left-width: 0;
     border-radius: 20px;
   }
 
   select, input {
     border-radius: 18px;
-    font-size: 1.2rem;
+    font-size: 0.8rem;
+    min-height: clamp(52px, 12vw, 68px);
   }
+
+  .hint { font-size: 1.25rem; }
 }
 </style>
 </head>
