@@ -214,6 +214,27 @@ button:disabled {
   background: var(--accent-dark);
 }
 
+.basemap-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: auto;
+  min-width: 0;
+  padding: 12px 20px;
+  background: #0f1b2c;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 1rem;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 16px 32px rgba(15, 27, 44, 0.28);
+  z-index: 500;
+}
+
+.basemap-btn:hover {
+  background: #1d3354;
+}
+
 .manual-title { margin-top: 0; font-size: 1.25rem; }
 
 .manual-fields {
@@ -349,6 +370,13 @@ button:disabled {
     top: 12px;
     left: 12px;
     font-size: 1.1rem;
+    padding: 10px 18px;
+  }
+
+  .basemap-btn {
+    top: 60px;
+    right: 12px;
+    font-size: 1.05rem;
     padding: 10px 18px;
   }
 
