@@ -83,6 +83,25 @@ button {
 
 button:hover { background: #199a64; }
 
+.reload-btn {
+  margin-top: 14px;
+  margin-bottom: 12px;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--text-strong);
+  background-color: rgb(74, 46, 150);
+  box-shadow: 0 12px 24px rgba(62, 90, 230, 0.895);
+}
+
+.reload-btn:hover { background: #17233a; }
+
+.reload-btn span { font-size: 1.4rem; color: #fff; }
+
 .download-btn {
   background: #00a8b5;
   margin-top: 12px;
@@ -134,6 +153,18 @@ button:disabled {
   box-shadow: var(--card-shadow);
 }
 
+.live-layout {
+  margin-top: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.live-layout .manual-box,
+.live-layout .map-box {
+  margin-top: 0;
+}
+
 .map-box {
   margin-top: 32px;
   padding: 24px;
@@ -143,6 +174,18 @@ button:disabled {
   box-shadow: var(--card-shadow);
 }
 
+.dms-popup {
+  direction: ltr;
+  text-align: left;
+  display: inline-block;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.95rem;
+}
+
+.map-wrapper {
+  position: relative;
+}
+
 #map {
   width: 100%;
   height: 380px;
@@ -150,6 +193,25 @@ button:disabled {
   margin-top: 16px;
   overflow: hidden;
   box-shadow: 0 26px 60px rgba(15, 27, 44, 0.18);
+}
+
+.gps-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: auto;
+  min-width: 0;
+  padding: 12px 22px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 1rem;
+  box-shadow: 0 16px 32px rgba(23, 98, 255, 0.28);
+  z-index: 500;
+}
+
+.gps-btn:hover {
+  background: var(--accent-dark);
 }
 
 .manual-title { margin-top: 0; font-size: 1.25rem; }
@@ -206,6 +268,18 @@ button:disabled {
   border-radius: 24px;
   background: var(--surface);
   box-shadow: var(--card-shadow);
+}
+
+@media (min-width: 641px) {
+  .live-layout {
+    flex-direction: row-reverse;
+    align-items: stretch;
+  }
+
+  .live-layout .manual-box,
+  .live-layout .map-box {
+    flex: 1 1 0;
+  }
 }
 
 @media (max-width: 640px) {
@@ -269,6 +343,13 @@ button:disabled {
     padding: 20px;
     border-radius: 0;
     margin-top: 34px;
+  }
+
+  .gps-btn {
+    top: 12px;
+    left: 12px;
+    font-size: 1.1rem;
+    padding: 10px 18px;
   }
 
   #map {
