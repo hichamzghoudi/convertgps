@@ -19,20 +19,30 @@
 <body dir="rtl">
 
 <div class="container">
-  <h3>محول إحداثيات X/Y و Lat/Long (D°M'S'')</h3>
+  <h3 class="my-3">محول إحداثيات X/Y و Lat/Long (D°M'S'')</h3>
 
-  <label class="my-2">اختر نوع التحويل:</label>
-  <select id="conversionType">
-    <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
-    <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
-  </select>
-  <button type="button" class="reload-btn" onclick="handleReload()" aria-label="إعادة تحميل الصفحة">
-    <span aria-hidden="true">⟳</span>
-  </button>
-
+  <div class="conversion-header">
+    <div class="city-picker">
+      <select id="citySelect" class="city-select" aria-label="اختر المدينة (اختياري)">
+        <option value="">جارٍ تحميل المدن...</option>
+      </select>
+      <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
+    </div>
+      <label class="my-2 conversion-label" for="conversionType">اختر نوع التحويل:</label>
+       <select id="conversionType">
+        <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
+        <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
+      </select>
+    </div>
   <div class="live-layout">
     <div class="manual-box">
-      <h4 class="manual-title">تحويل قيمة واحدة</h4>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h4 class="manual-title">تحويل قيمة واحدة</h4>
+        <button type="button" class="reload-btn" onclick="handleReload()" aria-label="إعادة تحميل الصفحة">
+          <span aria-hidden="true">⟳</span>
+        </button>        
+      </div>
+      
       <p class="hint" id="manualHint"></p>
       <div class="manual-fields" id="dmsFields">
         <div class="dms-group">
@@ -61,8 +71,8 @@
         </div>
       </div>
       <div class="manual-fields" id="cartesianFields">
-        <input type="number" id="manualX" placeholder="X (Merchich Zone 1)">
-        <input type="number" id="manualY" placeholder="Y (Merchich Zone 1)">
+        <input type="number" id="manualX" placeholder="X">
+        <input type="number" id="manualY" placeholder="Y">
       </div>
       <button class="manual-btn" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
       <div class="result single-result" id="singleResult"></div>
@@ -539,6 +549,79 @@
     convertBtn.disabled = fileInput.files.length === 0;
   }
 
+  function initCityPicker() {
+    const citySelect = document.getElementById('citySelect');
+    if(!citySelect || typeof fetch !== 'function') {
+      return;
+    }
+    fetch('ville.json', { cache: 'no-store' })
+      .then((response) => {
+        if(!response.ok) {
+          throw new Error('Failed to load cities');
+        }
+        return response.json();
+      })
+      .then((data) => populateCitySelect(citySelect, data))
+      .catch(() => handleCityLoadError(citySelect));
+  }
+
+  function populateCitySelect(citySelect, cityData) {
+    if(!citySelect) return;
+    citySelect.innerHTML = '';
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = 'اختر المدينة (اختياري)';
+    citySelect.appendChild(placeholderOption);
+    const entries = Object.entries(cityData || {});
+    if(!entries.length) {
+      citySelect.disabled = true;
+      placeholderOption.textContent = 'لا توجد مدن متاحة';
+      return;
+    }
+    entries.sort((a, b) => a[0].localeCompare(b[0], 'ar', { sensitivity: 'base', numeric: true }));
+    entries.forEach(([name, zone]) => {
+      const option = document.createElement('option');
+      const normalizedZone = formatZoneLabel(zone);
+      option.value = name;
+      option.textContent = `${name} — ${normalizedZone}`;
+      option.dataset.zone = normalizedZone;
+      citySelect.appendChild(option);
+    });
+  }
+
+  function handleCityLoadError(citySelect) {
+    if(!citySelect) return;
+    citySelect.innerHTML = '<option value="">تعذر تحميل المدن</option>';
+    citySelect.disabled = true;
+  }
+
+  function handleCitySelection() {
+    const citySelect = document.getElementById('citySelect');
+    if(!citySelect) return;
+    const selectedOption = citySelect.options[citySelect.selectedIndex];
+    const zoneText = selectedOption && selectedOption.dataset.zone ? selectedOption.dataset.zone : '';
+    updateCityZoneBadge(zoneText);
+  }
+
+  function updateCityZoneBadge(zoneText) {
+    const badge = document.getElementById('cityZoneBadge');
+    if(!badge) return;
+    if(!zoneText) {
+      badge.textContent = '';
+      badge.hidden = true;
+      return;
+    }
+    badge.textContent = zoneText;
+    badge.hidden = false;
+  }
+
+  function formatZoneLabel(zoneValue) {
+    if(typeof zoneValue !== 'string') {
+      return '';
+    }
+    return zoneValue.replace(/_/g, ' ');
+  }
+
   function handleReload() {
     window.location.reload();
   }
@@ -681,6 +764,7 @@
     URL.revokeObjectURL(url);
   }
 
+  document.getElementById('citySelect').addEventListener('change', handleCitySelection);
   document.getElementById('conversionType').addEventListener('change', updateFileHint);
   document.getElementById('csvFile').addEventListener('change', () => {
     updateConvertButtonState();
@@ -691,6 +775,7 @@
   });
   window.addEventListener('beforeunload', stopGeoWatch);
   initMap();
+  initCityPicker();
   updateFileHint();
   updateConvertButtonState();
 </script>
