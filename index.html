@@ -38,7 +38,7 @@
   <div class="live-layout">
     <div class="manual-box">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <h4 class="manual-title">تحويل قيمة واحدة</h4>
+        <h3 class="manual-title">تحويل قيمة واحدة</h3>
         <button type="button" class="reload-btn" onclick="handleReload()" aria-label="إعادة تحميل الصفحة">
           <span aria-hidden="true">⟳</span>
         </button>        
@@ -80,7 +80,7 @@
     </div>
 
     <div class="map-box">
-      <h2>عرض النقطة على الخريطة</h2>
+      <h3>عرض النقطة على الخريطة</h3>
       <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها.</p>
       <div class="map-wrapper">
         <button type="button" class="gps-btn" onclick="locateUser()" aria-label="إظهار موقعي الحالي"><i class="bi bi-geo-alt-fill"></i> </button>
@@ -91,7 +91,7 @@
   </div>
 
   <div id="batchSection">
-    <h2>تحويل عدة قيم </h2>
+    <h3>تحويل عدة قيم </h3>
     <label>اختر ملف CSV للإحداثيات (أعمدة X و Y):</label>
     <input type="file" id="csvFile" accept=".csv">
     <p class="hint" id="fileHint"></p>
