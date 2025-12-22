@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>محول إحداثيات Merchich و Lat/Long (DMS)</title>
+<title>محول إحداثيات X/Y و Lat/Long</title>
+<link rel="icon" href="convertgps.png" type="image/x-jpg">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <link rel="stylesheet" href="style.css">
@@ -171,6 +172,7 @@
     }).setView(defaultMapCenter, 6);
 
     L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
+
     L.control.scale({ position: 'bottomleft', metric: true, imperial: false }).addTo(mapInstance);
 
     applyBasemapLayer(currentBasemapIndex);
@@ -599,6 +601,7 @@
       currentZoneKey = defaultZoneKey;
     }
   }
+
 
   function flattenCityZones(cityData) {
     const flattened = {};
