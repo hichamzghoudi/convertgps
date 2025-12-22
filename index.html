@@ -106,9 +106,27 @@
 </div>
 
 <script>
-  // تعريف نظام Merchich Zone 1
-  const Merchich1 = "+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs";
   const wgs84 = proj4.WGS84;
+  const merchichZones = {
+    Zone_I: {
+      label: '',
+      proj: '+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+    },
+    Zone_II: {
+      label: '',
+      proj: '+proj=lcc +lat_1=29.7 +lat_0=29.7 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+    },
+    Zone_III: {
+      label: '',
+      proj: '+proj=lcc +lat_1=26.1 +lat_0=26.1 +lon_0=-5.4 +k_0=0.999625769 +x_0=1200000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+    },
+    Zone_IV: {
+      label: '',
+      proj: '+proj=lcc +lat_1=22.5 +lat_0=22.5 +lon_0=-5.4 +k_0=0.999625769 +x_0=1500000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+    }
+  };
+  const defaultZoneKey = 'Zone_I';
+  let currentZoneKey = defaultZoneKey;
   let lastConvertedRows = [];
   let lastConvertedFields = null;
   let lastConversionType = null;
@@ -348,8 +366,8 @@
     toggleManualFields(type);
 
     if(type === "latlong-to-Merchich") {
-      hint.innerText = "تحويل الملفات متاح فقط لاتجاه Merchich Zone 1 → Lat/Long. الرجاء استخدام التحويل اليدوي لهذا الاتجاه.";
-      manualHint.innerText = "أدخل خطوط الطول والعرض يدويًا بالدرجة والدقيقة والثانية (D°M'S'') ليتم تحويلها إلى إحداثيات X و Y فورًا.";
+      hint.innerText = "تحويل الملفات متاح فقط لاتجاه X/Y → Lat/Long (D°M'S''). الرجاء استخدام التحويل اليدوي لهذا الاتجاه.";
+      manualHint.innerText = "أدخل خطوط الطول والعرض (D°M'S'') ليتم تحويلها إلى إحداثيات X و Y باستخدام المنطقة المرتبطة بالمدينة المختارة.";
       if(batchSection) batchSection.style.display = 'none';
       if(csvImage) {
         csvImage.style.display = 'none';
@@ -363,8 +381,8 @@
       lastConvertedRows = [];
       lastConvertedFields = null;
     } else {
-      hint.innerText = "ارفع ملف CSV يضم عمودين فقط مسميين X و Y لقيم  ليتم تحويلها إلى Lat/Long (D°M'S'').";
-      manualHint.innerText = "أدخل إحداثيات (X, Y) يدويًا  ليتم تحويلها إلى Lat/Long (D°M'S'') فورًا.";
+      hint.innerText = "ارفع ملف CSV (أعمدة X و Y) وسيتم تحويله إلى Lat/Long (D°M'S'') وفق المنطقة الخاصة بالمدينة المختارة أو المنطقة الافتراضية.";
+      manualHint.innerText = "أدخل إحداثيات (X, Y) يدويًا ليتم تحويلها مباشرة إلى Lat/Long باستخدام المنطقة المناسبة.";
       if(batchSection) batchSection.style.display = 'block';
       if(csvImage) {
         csvImage.src = 'modelcsvxy.JPG';
@@ -549,6 +567,77 @@
     convertBtn.disabled = fileInput.files.length === 0;
   }
 
+  function normalizeZoneKey(zoneValue) {
+    if(typeof zoneValue !== 'string') {
+      return '';
+    }
+    return zoneValue
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/-+/g, '_')
+      .replace(/zone/gi, 'Zone');
+  }
+
+  function getZoneDisplayLabel(zoneKey) {
+    const normalized = normalizeZoneKey(zoneKey);
+    const zoneConfig = merchichZones[normalized];
+    if(zoneConfig && zoneConfig.label) {
+      return zoneConfig.label;
+    }
+    return normalized ? normalized.replace(/_/g, ' ') : '';
+  }
+
+  function getCurrentZoneConfig() {
+    return merchichZones[currentZoneKey] || merchichZones[defaultZoneKey] || null;
+  }
+
+  function setActiveZone(zoneKey) {
+    const normalized = normalizeZoneKey(zoneKey);
+    if(normalized && merchichZones[normalized]) {
+      currentZoneKey = normalized;
+    } else {
+      currentZoneKey = defaultZoneKey;
+    }
+  }
+
+  function flattenCityZones(cityData) {
+    const flattened = {};
+    if(!cityData || typeof cityData !== 'object') {
+      return flattened;
+    }
+    Object.entries(cityData).forEach(([key, value]) => {
+      if(Array.isArray(value)) {
+        const zoneKey = normalizeZoneKey(key);
+        if(!zoneKey) {
+          return;
+        }
+        value.forEach((cityName) => {
+          if(typeof cityName !== 'string') {
+            return;
+          }
+          const trimmed = cityName.trim();
+          if(!trimmed) {
+            return;
+          }
+          flattened[trimmed] = zoneKey;
+        });
+        return;
+      }
+      if(typeof value === 'string') {
+        const zoneKey = normalizeZoneKey(value);
+        if(!zoneKey) {
+          return;
+        }
+        const trimmedKey = typeof key === 'string' ? key.trim() : key;
+        if(!trimmedKey) {
+          return;
+        }
+        flattened[trimmedKey] = zoneKey;
+      }
+    });
+    return flattened;
+  }
+
   function initCityPicker() {
     const citySelect = document.getElementById('citySelect');
     if(!citySelect || typeof fetch !== 'function') {
@@ -572,19 +661,22 @@
     placeholderOption.value = '';
     placeholderOption.textContent = 'اختر المدينة (اختياري)';
     citySelect.appendChild(placeholderOption);
-    const entries = Object.entries(cityData || {});
+    const flattened = flattenCityZones(cityData);
+    const entries = Object.entries(flattened);
     if(!entries.length) {
       citySelect.disabled = true;
       placeholderOption.textContent = 'لا توجد مدن متاحة';
       return;
     }
     entries.sort((a, b) => a[0].localeCompare(b[0], 'ar', { sensitivity: 'base', numeric: true }));
-    entries.forEach(([name, zone]) => {
+    entries.forEach(([name, zoneKey]) => {
       const option = document.createElement('option');
-      const normalizedZone = formatZoneLabel(zone);
+      const zoneLabel = getZoneDisplayLabel(zoneKey);
       option.value = name;
-      option.textContent = `${name} — ${normalizedZone}`;
-      option.dataset.zone = normalizedZone;
+      option.textContent = zoneLabel ? `${name} — ${zoneLabel}` : name;
+      if(zoneKey) {
+        option.dataset.zoneKey = zoneKey;
+      }
       citySelect.appendChild(option);
     });
   }
@@ -599,8 +691,11 @@
     const citySelect = document.getElementById('citySelect');
     if(!citySelect) return;
     const selectedOption = citySelect.options[citySelect.selectedIndex];
-    const zoneText = selectedOption && selectedOption.dataset.zone ? selectedOption.dataset.zone : '';
-    updateCityZoneBadge(zoneText);
+    const zoneKey = selectedOption && selectedOption.dataset.zoneKey ? selectedOption.dataset.zoneKey : '';
+    const normalizedZone = normalizeZoneKey(zoneKey);
+    const hasSupportedZone = Boolean(normalizedZone && merchichZones[normalizedZone]);
+    setActiveZone(hasSupportedZone ? normalizedZone : '');
+    updateCityZoneBadge(hasSupportedZone ? getZoneDisplayLabel(normalizedZone) : '');
   }
 
   function updateCityZoneBadge(zoneText) {
@@ -615,13 +710,6 @@
     badge.hidden = false;
   }
 
-  function formatZoneLabel(zoneValue) {
-    if(typeof zoneValue !== 'string') {
-      return '';
-    }
-    return zoneValue.replace(/_/g, ' ');
-  }
-
   function handleReload() {
     window.location.reload();
   }
@@ -631,6 +719,14 @@
     const type = document.getElementById('conversionType').value;
     const resultDiv = document.getElementById('result');
     const downloadBtn = document.getElementById('downloadBtn');
+    const zoneConfig = getCurrentZoneConfig();
+
+    if(!zoneConfig) {
+      resultDiv.innerText = 'لا يوجد نظام إسقاط صالح لهذا التحويل. الرجاء اختيار مدينة مرتبطة بمنطقة معتمدة.';
+      return;
+    }
+
+    const zoneLabel = getZoneDisplayLabel(currentZoneKey) || 'Zone I';
 
     lastConvertedRows = [];
     lastConvertedFields = null;
@@ -638,7 +734,7 @@
     if(downloadBtn) downloadBtn.disabled = true;
 
     if(type !== "Merchich-to-latlong") {
-      resultDiv.innerText = "تحويل الملفات متاح فقط لاتجاه Merchich Zone 1 → Lat/Long.";
+      resultDiv.innerText = "تحويل الملفات متاح فقط لاتجاه X/Y → Lat/Long (D°M'S'').";
       return;
     }
 
@@ -659,7 +755,7 @@
           resultDiv.innerText = `لم يتم العثور على عمودين باسم X و Y. الأعمدة الحالية في الملف: ${existing}`;
           return;
         }
-        let output = "الإحداثيات المحوّلة (عمود A = Latitude، عمود B = Longitude):\n\n";
+        let output = `الإحداثيات المحوّلة (عمود A = Latitude، عمود B = Longitude) — ${zoneLabel}:\n\n`;
         const convertedRows = [];
 
         data.forEach((row, index) => {
@@ -670,7 +766,7 @@
           const y = parseFloat(yVal);
           if(isNaN(x) || isNaN(y)) return;
 
-          const [lon, lat] = proj4(Merchich1, wgs84, [x, y]);
+          const [lon, lat] = proj4(zoneConfig.proj, wgs84, [x, y]);
           const latDms = decimalToDMS(lat, true);
           const lonDms = decimalToDMS(lon, false);
           output += `Ligne ${index+1} : Latitude ${formatDMS(latDms)}, Longitude ${formatDMS(lonDms)}\n`;
@@ -695,6 +791,20 @@
   function convertSingle() {
     const type = document.getElementById('conversionType').value;
     const resultDiv = document.getElementById('singleResult');
+    const citySelect = document.getElementById('citySelect');
+    if(citySelect && !citySelect.value) {
+      resultDiv.innerText = 'الرجاء اختيار مدينة من القائمة قبل إجراء التحويل.';
+      citySelect.focus();
+      return;
+    }
+    const zoneConfig = getCurrentZoneConfig();
+
+    if(!zoneConfig) {
+      resultDiv.innerText = 'لا يوجد نظام إسقاط صالح متاح. الرجاء اختيار مدينة مرتبطة بمنطقة معتمدة.';
+      return;
+    }
+
+    const zoneLabel = getZoneDisplayLabel(currentZoneKey) || 'Zone I';
 
     if(type === "latlong-to-Merchich") {
       const latDeg = parseFloat(document.getElementById('latDeg').value);
@@ -714,10 +824,10 @@
         return;
       }
 
-      const [xMerchich, yMerchich] = proj4(wgs84, Merchich1, [longitude, latitude]);
+      const [xMerchich, yMerchich] = proj4(wgs84, zoneConfig.proj, [longitude, latitude]);
       const xInt = Math.round(xMerchich);
       const yInt = Math.round(yMerchich);
-      resultDiv.innerText = `X = ${xInt}\nY = ${yInt}`;
+      resultDiv.innerText = `X = ${xInt}\nY = ${yInt}\nZone: ${zoneLabel}`;
       const latDmsText = formatDMS(decimalToDMS(latitude, true));
       const lonDmsText = formatDMS(decimalToDMS(longitude, false));
       updateMap(latitude, longitude, `الموقع الأصلي<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
@@ -730,12 +840,12 @@
         return;
       }
 
-      const [lon, lat] = proj4(Merchich1, wgs84, [xInput, yInput]);
+      const [lon, lat] = proj4(zoneConfig.proj, wgs84, [xInput, yInput]);
       const latDms = decimalToDMS(lat, true);
       const lonDms = decimalToDMS(lon, false);
       const latDmsText = formatDMS(latDms);
       const lonDmsText = formatDMS(lonDms);
-      resultDiv.innerText = `Latitude : ${latDmsText}\nLongitude : ${lonDmsText}`;
+      resultDiv.innerText = `Latitude : ${latDmsText}\nLongitude : ${lonDmsText}\nZone: ${zoneLabel}`;
       updateMap(lat, lon, `النقطة المحوّلة إلى Lat/Long<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
     }
   }
