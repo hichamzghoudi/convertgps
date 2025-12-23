@@ -22,19 +22,19 @@
 <div class="container">
   <h3 class="my-3">محول إحداثيات X/Y و Lat/Long (D°M'S'')</h3>
 
-  <div class="conversion-header">
-    <div class="city-picker">
-      <select id="citySelect" class="city-select" aria-label="اختر المدينة (اختياري)">
-        <option value="">جارٍ تحميل المدن...</option>
-      </select>
-      <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
-    </div>
+  <div class="conversion-header">    
+      <div class="city-select-block">
+        <select id="citySelect" class="city-select" aria-label="اختر المدينة (اجباري)">
+          <option value="">جارٍ تحميل المدن...</option>
+        </select>
+        <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
+      </div>
       <label class="my-2 conversion-label" for="conversionType">اختر نوع التحويل:</label>
-       <select id="conversionType">
+      <select id="conversionType" class="form-select form-select-lg mb-3" aria-label="اختر نوع التحويل">
         <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
         <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
       </select>
-    </div>
+  </div>
   <div class="live-layout">
     <div class="manual-box">
       <div class="d-flex justify-content-between align-items-center mb-2">
@@ -152,14 +152,20 @@
       }
     }
   ];
+  const MAX_FILE_SIZE_BYTES = 1024 * 1024;
+  const MAX_CSV_ROWS = 200;
   let mapInstance = null;
   let mapTileLayer = null;
   let currentBasemapIndex = 0;
-  let mapMarker = null;
+  let conversionMarker = null;
+  let userMarker = null;
   let userAccuracyCircle = null;
   let geoWatchId = null;
   let geoWatchTimeoutId = null;
   let coarseLocationWarned = false;
+  let citySelectTypeBuffer = '';
+  let citySelectTypeTimeoutId = null;
+  const CITY_SELECT_TYPE_TIMEOUT_MS = 1200;
 
   function initMap() {
     const mapElement = document.getElementById('map');
@@ -216,18 +222,46 @@
     toggleBtn.setAttribute('aria-pressed', current.key === 'imagery' ? 'true' : 'false');
   }
 
-  function updateMap(latitude, longitude, labelText, zoomLevel = 14) {
+  function updateConversionMarker(latitude, longitude, labelText, zoomLevel = 14) {
     if(!mapInstance || isNaN(latitude) || isNaN(longitude)) {
       return;
     }
     const target = [latitude, longitude];
-    if(!mapMarker) {
-      mapMarker = L.marker(target).addTo(mapInstance);
+    if(!conversionMarker) {
+      conversionMarker = L.circleMarker(target, {
+        radius: 10,
+        color: '#d61f46',
+        fillColor: '#d61f46',
+        fillOpacity: 0.9,
+        weight: 2
+      }).addTo(mapInstance);
     } else {
-      mapMarker.setLatLng(target);
+      conversionMarker.setLatLng(target);
     }
     if(labelText) {
-      mapMarker.bindPopup(labelText).openPopup();
+      conversionMarker.bindPopup(labelText).openPopup();
+    }
+    mapInstance.setView(target, zoomLevel);
+  }
+
+  function updateUserLocationMarker(latitude, longitude, labelText, zoomLevel = 16) {
+    if(!mapInstance || isNaN(latitude) || isNaN(longitude)) {
+      return;
+    }
+    const target = [latitude, longitude];
+    if(!userMarker) {
+      userMarker = L.circleMarker(target, {
+        radius: 10,
+        color: '#1fa86d',
+        fillColor: '#1fa86d',
+        fillOpacity: 0.9,
+        weight: 2
+      }).addTo(mapInstance);
+    } else {
+      userMarker.setLatLng(target);
+    }
+    if(labelText) {
+      userMarker.bindPopup(labelText).openPopup();
     }
     mapInstance.setView(target, zoomLevel);
   }
@@ -275,15 +309,15 @@
       : 'Ma position actuelle';
     const popupText = `${popupHeader}<br>${wrapDmsHtml(latDmsText, lonDmsText)}`;
 
-    updateMap(latitude, longitude, popupText, 16);
+    updateUserLocationMarker(latitude, longitude, popupText, 16);
 
     const circleTarget = [latitude, longitude];
     if(accuracy !== null) {
       if(!userAccuracyCircle) {
         userAccuracyCircle = L.circle(circleTarget, {
           radius: accuracy,
-          color: '#1762ff',
-          fillColor: '#1762ff',
+          color: '#1fa86d',
+          fillColor: '#1fa86d',
           fillOpacity: 0.15,
           weight: 1
         }).addTo(mapInstance);
@@ -368,7 +402,11 @@
     toggleManualFields(type);
 
     if(type === "latlong-to-Merchich") {
-      hint.innerText = "تحويل الملفات متاح فقط لاتجاه X/Y → Lat/Long (D°M'S''). الرجاء استخدام التحويل اليدوي لهذا الاتجاه.";
+      const disabledMsg = "تحويل الملفات متاح فقط لاتجاه X/Y → Lat/Long (D°M'S''). الرجاء استخدام التحويل اليدوي لهذا الاتجاه.";
+      if(hint) {
+        hint.dataset.defaultMessage = disabledMsg;
+        hint.innerText = disabledMsg;
+      }
       manualHint.innerText = "أدخل خطوط الطول والعرض (D°M'S'') ليتم تحويلها إلى إحداثيات X و Y باستخدام المنطقة المرتبطة بالمدينة المختارة.";
       if(batchSection) batchSection.style.display = 'none';
       if(csvImage) {
@@ -383,7 +421,11 @@
       lastConvertedRows = [];
       lastConvertedFields = null;
     } else {
-      hint.innerText = "ارفع ملف CSV (أعمدة X و Y) وسيتم تحويله إلى Lat/Long (D°M'S'') وفق المنطقة الخاصة بالمدينة المختارة أو المنطقة الافتراضية.";
+      const activeMsg = "ارفع ملف CSV (أعمدة X و Y) بحجم لا يتجاوز 1 ميغابايت وبعدد أسطر لا يتخطى 200 ليتم تحويله إلى Lat/Long (D°M'S'') وفق المنطقة الخاصة بالمدينة المختارة أو المنطقة الافتراضية.";
+      if(hint) {
+        hint.dataset.defaultMessage = activeMsg;
+        hint.innerText = activeMsg;
+      }
       manualHint.innerText = "أدخل إحداثيات (X, Y) يدويًا ليتم تحويلها مباشرة إلى Lat/Long باستخدام المنطقة المناسبة.";
       if(batchSection) batchSection.style.display = 'block';
       if(csvImage) {
@@ -566,7 +608,31 @@
       convertBtn.disabled = true;
       return;
     }
-    convertBtn.disabled = fileInput.files.length === 0;
+    const file = fileInput.files[0];
+    const isValidSize = file ? file.size <= MAX_FILE_SIZE_BYTES : false;
+    convertBtn.disabled = !isValidSize;
+  }
+
+  function handleCsvFileChange() {
+    const fileInput = document.getElementById('csvFile');
+    const hint = document.getElementById('fileHint');
+    if(!fileInput) return;
+    const file = fileInput.files[0];
+    if(file && file.size > MAX_FILE_SIZE_BYTES) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      if(hint) {
+        hint.innerText = `حجم الملف ${sizeMb} ميغابايت وهو أكبر من الحد المسموح (1 ميغابايت). اختر ملفًا أصغر ثم أعد المحاولة.`;
+      }
+      fileInput.value = '';
+    } else if(hint && hint.dataset.defaultMessage) {
+      hint.innerText = hint.dataset.defaultMessage;
+    }
+
+    updateConvertButtonState();
+    lastConvertedRows = [];
+    lastConvertedFields = null;
+    const downloadBtn = document.getElementById('downloadBtn');
+    if(downloadBtn) downloadBtn.disabled = true;
   }
 
   function normalizeZoneKey(zoneValue) {
@@ -662,7 +728,7 @@
     citySelect.innerHTML = '';
     const placeholderOption = document.createElement('option');
     placeholderOption.value = '';
-    placeholderOption.textContent = 'اختر المدينة (اختياري)';
+    placeholderOption.textContent = 'اختر المدينة (اجباري)';
     citySelect.appendChild(placeholderOption);
     const flattened = flattenCityZones(cityData);
     const entries = Object.entries(flattened);
@@ -713,6 +779,76 @@
     badge.hidden = false;
   }
 
+  function focusCityOptionByQuery(selectElement, query) {
+    if(!selectElement || !query) {
+      return false;
+    }
+    const normalizedQuery = query.trim().toLowerCase();
+    if(!normalizedQuery) {
+      return false;
+    }
+    const options = Array.from(selectElement.options || []);
+    const matchIndex = options.findIndex((option) => {
+      if(!option || option.disabled) {
+        return false;
+      }
+      const text = (option.textContent || '').trim().toLowerCase();
+      return text.startsWith(normalizedQuery);
+    });
+    if(matchIndex === -1) {
+      return false;
+    }
+    selectElement.selectedIndex = matchIndex;
+    selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  function resetCitySelectTypeBuffer() {
+    citySelectTypeBuffer = '';
+    if(citySelectTypeTimeoutId) {
+      clearTimeout(citySelectTypeTimeoutId);
+      citySelectTypeTimeoutId = null;
+    }
+  }
+
+  function scheduleCitySelectTypeReset() {
+    if(citySelectTypeTimeoutId) {
+      clearTimeout(citySelectTypeTimeoutId);
+    }
+    citySelectTypeTimeoutId = window.setTimeout(() => {
+      citySelectTypeTimeoutId = null;
+      citySelectTypeBuffer = '';
+    }, CITY_SELECT_TYPE_TIMEOUT_MS);
+  }
+
+  function handleCitySelectTyping(event) {
+    const selectElement = event.currentTarget;
+    if(!selectElement) {
+      return;
+    }
+    if(event.key === 'Backspace') {
+      citySelectTypeBuffer = citySelectTypeBuffer.slice(0, -1);
+      scheduleCitySelectTypeReset();
+      event.preventDefault();
+      if(citySelectTypeBuffer) {
+        focusCityOptionByQuery(selectElement, citySelectTypeBuffer);
+      }
+      return;
+    }
+    if(event.key === 'Escape') {
+      resetCitySelectTypeBuffer();
+      return;
+    }
+    if(event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    citySelectTypeBuffer += event.key.toLowerCase();
+    scheduleCitySelectTypeReset();
+    if(focusCityOptionByQuery(selectElement, citySelectTypeBuffer)) {
+      event.preventDefault();
+    }
+  }
+
   function handleReload() {
     window.location.reload();
   }
@@ -746,12 +882,21 @@
       return;
     }
 
+    if(file.size > MAX_FILE_SIZE_BYTES) {
+      resultDiv.innerText = 'حجم الملف يتجاوز 1 ميغابايت المسموح بها. الرجاء اختيار ملف أصغر ثم إعادة المحاولة.';
+      return;
+    }
+
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: 'greedy',
       complete: function(results) {
         const data = results.data || [];
+        if(data.length > MAX_CSV_ROWS) {
+          resultDiv.innerText = `عدد الأسطر ${data.length} ويتجاوز الحد المسموح به (${MAX_CSV_ROWS})، الرجاء تقليص الملف ثم إعادة المحاولة.`;
+          return;
+        }
         const fields = (results.meta && Array.isArray(results.meta.fields)) ? results.meta.fields : [];
         if(!hasField(fields, 'X') || !hasField(fields, 'Y')) {
           const existing = fields.length ? fields.join(', ') : 'بدون رؤوس واضحة';
@@ -833,7 +978,7 @@
       resultDiv.innerText = `X = ${xInt}\nY = ${yInt}\nZone: ${zoneLabel}`;
       const latDmsText = formatDMS(decimalToDMS(latitude, true));
       const lonDmsText = formatDMS(decimalToDMS(longitude, false));
-      updateMap(latitude, longitude, `الموقع الأصلي<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
+      updateConversionMarker(latitude, longitude, `الموقع الأصلي<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
     } else {
       const xInput = parseFloat(document.getElementById('manualX').value);
       const yInput = parseFloat(document.getElementById('manualY').value);
@@ -849,7 +994,7 @@
       const latDmsText = formatDMS(latDms);
       const lonDmsText = formatDMS(lonDms);
       resultDiv.innerText = `Latitude : ${latDmsText}\nLongitude : ${lonDmsText}\nZone: ${zoneLabel}`;
-      updateMap(lat, lon, `النقطة المحوّلة إلى Lat/Long<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
+      updateConversionMarker(lat, lon, `النقطة المحوّلة إلى Lat/Long<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
     }
   }
 
@@ -878,14 +1023,10 @@
   }
 
   document.getElementById('citySelect').addEventListener('change', handleCitySelection);
+  document.getElementById('citySelect').addEventListener('keydown', handleCitySelectTyping);
+  document.getElementById('citySelect').addEventListener('blur', resetCitySelectTypeBuffer);
   document.getElementById('conversionType').addEventListener('change', updateFileHint);
-  document.getElementById('csvFile').addEventListener('change', () => {
-    updateConvertButtonState();
-    lastConvertedRows = [];
-    lastConvertedFields = null;
-    const downloadBtn = document.getElementById('downloadBtn');
-    if(downloadBtn) downloadBtn.disabled = true;
-  });
+  document.getElementById('csvFile').addEventListener('change', handleCsvFileChange);
   window.addEventListener('beforeunload', stopGeoWatch);
   initMap();
   initCityPicker();
