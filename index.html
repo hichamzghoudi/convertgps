@@ -30,10 +30,12 @@
         <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
       </div>
       <label class="my-2 conversion-label" for="conversionType">اختر نوع التحويل:</label>
-      <select id="conversionType" class="form-select form-select-lg mb-3" aria-label="اختر نوع التحويل">
-        <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
-        <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
-      </select>
+      <div>
+        <select id="conversionType" class="form-select form-select-lg mb-3" aria-label="اختر نوع التحويل">
+          <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
+          <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
+        </select>
+      </div>
   </div>
   <div class="live-layout">
     <div class="manual-box">
@@ -163,9 +165,6 @@
   let geoWatchId = null;
   let geoWatchTimeoutId = null;
   let coarseLocationWarned = false;
-  let citySelectTypeBuffer = '';
-  let citySelectTypeTimeoutId = null;
-  const CITY_SELECT_TYPE_TIMEOUT_MS = 1200;
 
   function initMap() {
     const mapElement = document.getElementById('map');
@@ -779,76 +778,6 @@
     badge.hidden = false;
   }
 
-  function focusCityOptionByQuery(selectElement, query) {
-    if(!selectElement || !query) {
-      return false;
-    }
-    const normalizedQuery = query.trim().toLowerCase();
-    if(!normalizedQuery) {
-      return false;
-    }
-    const options = Array.from(selectElement.options || []);
-    const matchIndex = options.findIndex((option) => {
-      if(!option || option.disabled) {
-        return false;
-      }
-      const text = (option.textContent || '').trim().toLowerCase();
-      return text.startsWith(normalizedQuery);
-    });
-    if(matchIndex === -1) {
-      return false;
-    }
-    selectElement.selectedIndex = matchIndex;
-    selectElement.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  function resetCitySelectTypeBuffer() {
-    citySelectTypeBuffer = '';
-    if(citySelectTypeTimeoutId) {
-      clearTimeout(citySelectTypeTimeoutId);
-      citySelectTypeTimeoutId = null;
-    }
-  }
-
-  function scheduleCitySelectTypeReset() {
-    if(citySelectTypeTimeoutId) {
-      clearTimeout(citySelectTypeTimeoutId);
-    }
-    citySelectTypeTimeoutId = window.setTimeout(() => {
-      citySelectTypeTimeoutId = null;
-      citySelectTypeBuffer = '';
-    }, CITY_SELECT_TYPE_TIMEOUT_MS);
-  }
-
-  function handleCitySelectTyping(event) {
-    const selectElement = event.currentTarget;
-    if(!selectElement) {
-      return;
-    }
-    if(event.key === 'Backspace') {
-      citySelectTypeBuffer = citySelectTypeBuffer.slice(0, -1);
-      scheduleCitySelectTypeReset();
-      event.preventDefault();
-      if(citySelectTypeBuffer) {
-        focusCityOptionByQuery(selectElement, citySelectTypeBuffer);
-      }
-      return;
-    }
-    if(event.key === 'Escape') {
-      resetCitySelectTypeBuffer();
-      return;
-    }
-    if(event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) {
-      return;
-    }
-    citySelectTypeBuffer += event.key.toLowerCase();
-    scheduleCitySelectTypeReset();
-    if(focusCityOptionByQuery(selectElement, citySelectTypeBuffer)) {
-      event.preventDefault();
-    }
-  }
-
   function handleReload() {
     window.location.reload();
   }
@@ -1023,8 +952,6 @@
   }
 
   document.getElementById('citySelect').addEventListener('change', handleCitySelection);
-  document.getElementById('citySelect').addEventListener('keydown', handleCitySelectTyping);
-  document.getElementById('citySelect').addEventListener('blur', resetCitySelectTypeBuffer);
   document.getElementById('conversionType').addEventListener('change', updateFileHint);
   document.getElementById('csvFile').addEventListener('change', handleCsvFileChange);
   window.addEventListener('beforeunload', stopGeoWatch);
