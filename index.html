@@ -25,12 +25,11 @@
   <div class="conversion-header"> 
       <label class="my-2 conversion-label" for="conversionType">اختر المدينة (اجباري)</label>
       <div class=" mb-3 city-select-block">
-        <input id="citySearchInput" class="form-control city-search-input" type="search" list="citySuggestions" placeholder="ابحث عن المدينة" autocomplete="on" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="search" aria-label="ابحث عن المدينة" disabled>
-        <select id="citySelect" class="form-select city-select bg-secondary bg-opacity-25 rounded" aria-label="ville">
-          <option value="">جارٍ تحميل المدن...</option>
-        </select>
+        <div class="city-search-wrapper">
+          <input id="citySearchInput" class="form-control city-search-input" type="search" placeholder="ابحث عن المدينة" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="search" aria-label="ابحث عن المدينة" aria-expanded="false" disabled>
+          <div id="citySuggestionsList" class="city-suggestions" role="listbox" aria-label="قائمة المدن" hidden></div>
+        </div>
       </div>
-      <datalist id="citySuggestions"></datalist>
       <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
       <label class="my-2 conversion-label" for="conversionType">اختر نوع التحويل:</label>
       <div>
@@ -170,10 +169,9 @@
   let geoWatchTimeoutId = null;
   let coarseLocationWarned = false;
   let cityOptionsCache = [];
-  let cityKeyboardBuffer = '';
-  let cityKeyboardResetTimeoutId = null;
-  const CITY_KEYBOARD_RESET_DELAY = 1800;
-  let prefersCityKeyboardProxy = (typeof window !== 'undefined' && 'ontouchstart' in window) || (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false);
+  let selectedCityName = '';
+  const CITY_SUGGESTION_LIMIT = 20;
+  let citySuggestionsHideTimeoutId = null;
 
   function initMap() {
     const mapElement = document.getElementById('map');
@@ -723,35 +721,64 @@
     return match ? match.display : '';
   }
 
-  function updateCityDisplayInputs() {
-    const selectElement = document.getElementById('citySelect');
-    const displayInput = document.getElementById('cityDisplayInput');
-    const button = document.getElementById('cityDropdownButton');
-    const selectedValue = selectElement ? selectElement.value : '';
-    const label = selectedValue ? getCityDisplayLabel(selectedValue) : '';
-    if(displayInput) {
-      displayInput.value = label;
+  function getCityEntryByName(name) {
+    if(!name) {
+      return null;
     }
-    if(button) {
-      button.textContent = label || 'اختر من القائمة';
+    return cityOptionsCache.find((entry) => entry.name === name) || null;
+  }
+
+  function clearSelectedCityState() {
+    selectedCityName = '';
+    setActiveZone('');
+    updateCityZoneBadge('');
+  }
+
+  function commitCitySelection(entry) {
+    if(!entry) {
+      clearSelectedCityState();
+      hideCitySuggestionsList();
+      return;
     }
+    selectedCityName = entry.name;
+    const normalizedZone = normalizeZoneKey(entry.zoneKey);
+    const zoneLabel = normalizedZone ? getZoneDisplayLabel(normalizedZone) : '';
+    setActiveZone(normalizedZone);
+    updateCityZoneBadge(zoneLabel);
     const searchInput = document.getElementById('citySearchInput');
     if(searchInput) {
-      if(cityOptionsCache.length) {
-        searchInput.placeholder = 'ابحث عن المدينة';
-      } else {
-        searchInput.placeholder = 'قائمة المدن غير متاحة';
+      const displayValue = entry.display || entry.name;
+      searchInput.value = displayValue;
+      if(typeof searchInput.setSelectionRange === 'function') {
+        const cursorPos = displayValue.length;
+        searchInput.setSelectionRange(cursorPos, cursorPos);
       }
+    }
+    hideCitySuggestionsList();
+  }
+
+  function updateCitySearchInputUI({ disabled = false, placeholderText } = {}) {
+    const searchInput = document.getElementById('citySearchInput');
+    if(!searchInput) {
+      return;
+    }
+    const placeholder = placeholderText || (disabled ? 'قائمة المدن غير متاحة' : 'ابحث عن المدينة');
+    searchInput.placeholder = placeholder;
+    if(disabled) {
+      searchInput.value = '';
+      searchInput.setAttribute('disabled', 'true');
+      return;
+    }
+    searchInput.removeAttribute('disabled');
+    if(selectedCityName && !searchInput.matches(':focus')) {
+      const label = getCityDisplayLabel(selectedCityName) || selectedCityName;
+      searchInput.value = label;
     }
   }
 
-  function renderCitySuggestions(filterText = '') {
-    const suggestions = document.getElementById('citySuggestions');
-    if(!suggestions) {
-      return;
-    }
-    suggestions.innerHTML = '';
+  function renderCitySuggestions(filterText = '', forceOpen = false) {
     if(!cityOptionsCache.length) {
+      hideCitySuggestionsList();
       return;
     }
     const normalized = filterText.trim().toLowerCase();
@@ -760,12 +787,73 @@
         return true;
       }
       return entry.name.toLowerCase().startsWith(normalized) || entry.display.toLowerCase().startsWith(normalized);
-    }).slice(0, 20);
+    }).slice(0, CITY_SUGGESTION_LIMIT);
+    const shouldOpen = forceOpen || isCitySearchInputFocused();
+    updateCitySuggestionList(matches, normalized, shouldOpen);
+  }
+
+  function isCitySearchInputFocused() {
+    const input = document.getElementById('citySearchInput');
+    return Boolean(input && document.activeElement === input);
+  }
+
+  function updateCitySuggestionList(matches, normalizedFilter, shouldOpen) {
+    const listElement = document.getElementById('citySuggestionsList');
+    if(!listElement) {
+      syncCitySearchExpandedState(false);
+      return;
+    }
+    listElement.innerHTML = '';
+    if(!shouldOpen) {
+      listElement.hidden = true;
+      syncCitySearchExpandedState(false);
+      return;
+    }
+    if(!matches.length) {
+      if(normalizedFilter) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'city-suggestion-empty';
+        emptyState.textContent = 'لا توجد مدينة مطابقة';
+        listElement.appendChild(emptyState);
+        listElement.hidden = false;
+        syncCitySearchExpandedState(true);
+      } else {
+        listElement.hidden = true;
+        syncCitySearchExpandedState(false);
+      }
+      return;
+    }
+    const fragment = document.createDocumentFragment();
     matches.forEach((entry) => {
-      const option = document.createElement('option');
-      option.value = entry.display;
-      suggestions.appendChild(option);
+      const optionButton = document.createElement('button');
+      optionButton.type = 'button';
+      optionButton.className = 'city-suggestion-item';
+      optionButton.dataset.cityName = entry.name;
+      optionButton.dataset.display = entry.display;
+      optionButton.textContent = entry.display;
+      optionButton.setAttribute('role', 'option');
+      fragment.appendChild(optionButton);
     });
+    listElement.appendChild(fragment);
+    listElement.hidden = false;
+    syncCitySearchExpandedState(true);
+  }
+
+  function hideCitySuggestionsList() {
+    cancelCitySuggestionsHide();
+    const listElement = document.getElementById('citySuggestionsList');
+    if(listElement) {
+      listElement.hidden = true;
+      listElement.innerHTML = '';
+    }
+    syncCitySearchExpandedState(false);
+  }
+
+  function syncCitySearchExpandedState(isOpen) {
+    const input = document.getElementById('citySearchInput');
+    if(input) {
+      input.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
   }
 
   function findCityMatchByInput(inputValue) {
@@ -779,42 +867,34 @@
   }
 
   function applyCitySelectionFromName(name) {
-    if(!name) {
-      return;
-    }
-    const citySelect = document.getElementById('citySelect');
-    if(!citySelect) {
-      return;
-    }
-    if(citySelect.value !== name) {
-      citySelect.value = name;
-      citySelect.dispatchEvent(new Event('change', { bubbles: true }));
-    } else {
-      updateCityDisplayInputs();
-    }
-    const searchInput = document.getElementById('citySearchInput');
-    if(searchInput) {
-      searchInput.value = '';
-    }
-    renderCitySuggestions('');
+    commitCitySelection(getCityEntryByName(name));
   }
 
   function handleCitySearchInput(event) {
     const value = event && event.target ? event.target.value : '';
-    renderCitySuggestions(value);
+    cancelCitySuggestionsHide();
+    renderCitySuggestions(value, true);
     const match = findCityMatchByInput(value);
-    if(match) {
+    const normalized = value.trim().toLowerCase();
+    if(match && (match.display.toLowerCase() === normalized || match.name.toLowerCase() === normalized)) {
       applyCitySelectionFromName(match.name);
+    } else {
+      clearSelectedCityState();
     }
   }
 
   function handleCitySearchFocus() {
-    prefersCityKeyboardProxy = false;
-    clearCityKeyboardBuffer();
-    renderCitySuggestions(document.getElementById('citySearchInput') ? document.getElementById('citySearchInput').value : '');
+    cancelCitySuggestionsHide();
+    const input = document.getElementById('citySearchInput');
+    const value = input ? input.value : '';
+    renderCitySuggestions(value, true);
   }
 
   function handleCitySearchKeyDown(event) {
+    if(event.key === 'Escape') {
+      hideCitySuggestionsList();
+      return;
+    }
     if(event.key === 'Enter') {
       const match = findCityMatchByInput(event.target.value || '');
       if(match) {
@@ -824,9 +904,47 @@
     }
   }
 
+  function cancelCitySuggestionsHide() {
+    if(citySuggestionsHideTimeoutId) {
+      clearTimeout(citySuggestionsHideTimeoutId);
+      citySuggestionsHideTimeoutId = null;
+    }
+  }
+
+  function handleCitySearchBlur() {
+    cancelCitySuggestionsHide();
+    citySuggestionsHideTimeoutId = window.setTimeout(() => {
+      const listElement = document.getElementById('citySuggestionsList');
+      const searchInput = document.getElementById('citySearchInput');
+      const activeElement = document.activeElement;
+      if(activeElement && (activeElement === searchInput || (listElement && listElement.contains(activeElement)))) {
+        return;
+      }
+      hideCitySuggestionsList();
+    }, 120);
+  }
+
+  function handleCitySuggestionClick(event) {
+    const target = event.target.closest('.city-suggestion-item');
+    if(!target) {
+      return;
+    }
+    const cityName = target.dataset.cityName;
+    if(!cityName) {
+      return;
+    }
+    applyCitySelectionFromName(cityName);
+  }
+
+  function handleOutsideCitySuggestionClick(event) {
+    if(event.target.closest('.city-search-wrapper')) {
+      return;
+    }
+    hideCitySuggestionsList();
+  }
+
   function initCityPicker() {
-    const citySelect = document.getElementById('citySelect');
-    if(!citySelect || typeof fetch !== 'function') {
+    if(typeof fetch !== 'function') {
       return;
     }
     fetch('ville.json', { cache: 'no-store' })
@@ -836,25 +954,18 @@
         }
         return response.json();
       })
-      .then((data) => populateCitySelect(citySelect, data))
-      .catch(() => handleCityLoadError(citySelect));
+      .then(populateCityOptions)
+      .catch(handleCityLoadError);
   }
 
-  function populateCitySelect(citySelect, cityData) {
-    if(!citySelect) return;
+  function populateCityOptions(cityData) {
     const flattened = flattenCityZones(cityData);
     const entries = Object.entries(flattened);
     if(!entries.length) {
-      citySelect.innerHTML = '<option value="">لا توجد مدن متاحة</option>';
-      citySelect.disabled = true;
       cityOptionsCache = [];
-      const searchInputEmpty = document.getElementById('citySearchInput');
-      if(searchInputEmpty) {
-        searchInputEmpty.value = '';
-        searchInputEmpty.setAttribute('disabled', 'true');
-      }
-      renderCitySuggestions('');
-      updateCityDisplayInputs();
+      clearSelectedCityState();
+      updateCitySearchInputUI({ disabled: true, placeholderText: 'لا توجد مدن متاحة' });
+      hideCitySuggestionsList();
       return;
     }
     cityOptionsCache = entries.map(([name, zoneKey]) => {
@@ -866,57 +977,19 @@
       };
     }).sort((a, b) => a.name.localeCompare(b.name, 'ar', { sensitivity: 'base', numeric: true }));
 
-    citySelect.innerHTML = '';
-    const placeholderOption = document.createElement('option');
-    placeholderOption.value = '';
-    placeholderOption.textContent = 'اختر المدينة';
-    placeholderOption.disabled = true;
-    placeholderOption.selected = true;
-    citySelect.appendChild(placeholderOption);
-
-    cityOptionsCache.forEach((entry) => {
-      const option = document.createElement('option');
-      option.value = entry.name;
-      option.textContent = entry.display;
-      if(entry.zoneKey) {
-        option.dataset.zoneKey = entry.zoneKey;
-      }
-      citySelect.appendChild(option);
-    });
-    citySelect.disabled = false;
-    const searchInput = document.getElementById('citySearchInput');
-    if(searchInput) {
-      searchInput.value = '';
-      searchInput.removeAttribute('disabled');
+    if(selectedCityName && !getCityEntryByName(selectedCityName)) {
+      clearSelectedCityState();
     }
-    renderCitySuggestions('');
-    updateCityDisplayInputs();
+
+    updateCitySearchInputUI({ disabled: false });
+    renderCitySuggestions('', false);
   }
 
-  function handleCityLoadError(citySelect) {
-    if(!citySelect) return;
-    citySelect.innerHTML = '<option value="">تعذر تحميل المدن</option>';
-    citySelect.disabled = true;
+  function handleCityLoadError() {
     cityOptionsCache = [];
-    const searchInput = document.getElementById('citySearchInput');
-    if(searchInput) {
-      searchInput.value = '';
-      searchInput.setAttribute('disabled', 'true');
-    }
-    renderCitySuggestions('');
-    updateCityDisplayInputs();
-  }
-
-  function handleCitySelection() {
-    const citySelect = document.getElementById('citySelect');
-    if(!citySelect) return;
-    const selectedOption = citySelect.options[citySelect.selectedIndex];
-    const zoneKey = selectedOption && selectedOption.dataset.zoneKey ? selectedOption.dataset.zoneKey : '';
-    const normalizedZone = normalizeZoneKey(zoneKey);
-    const hasSupportedZone = Boolean(normalizedZone && merchichZones[normalizedZone]);
-    setActiveZone(hasSupportedZone ? normalizedZone : '');
-    updateCityZoneBadge(hasSupportedZone ? getZoneDisplayLabel(normalizedZone) : '');
-    updateCityDisplayInputs();
+    clearSelectedCityState();
+    updateCitySearchInputUI({ disabled: true, placeholderText: 'تعذر تحميل المدن' });
+    hideCitySuggestionsList();
   }
 
   function updateCityZoneBadge(zoneText) {
@@ -931,162 +1004,6 @@
     badge.hidden = false;
   }
 
-  function focusCityOptionByQuery(selectElement, query) {
-    if(!selectElement || !query) {
-      return false;
-    }
-    const normalizedQuery = query.trim().toLowerCase();
-    if(!normalizedQuery) {
-      return false;
-    }
-    const options = Array.from(selectElement.options || []);
-    const matchIndex = options.findIndex((option) => {
-      if(!option || option.disabled) {
-        return false;
-      }
-      const textValue = (option.textContent || option.value || '').trim().toLowerCase();
-      return textValue.startsWith(normalizedQuery);
-    });
-    if(matchIndex === -1) {
-      return false;
-    }
-    const matchedOption = options[matchIndex];
-    if(selectElement.selectedIndex !== matchIndex) {
-      selectElement.selectedIndex = matchIndex;
-      selectElement.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    if(matchedOption) {
-      if(typeof matchedOption.scrollIntoView === 'function') {
-        matchedOption.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      } else if(typeof selectElement.scrollTop === 'number') {
-        const optionTop = matchedOption.offsetTop || 0;
-        const optionHeight = matchedOption.offsetHeight || 0;
-        const selectHeight = selectElement.clientHeight || 0;
-        const currentScroll = selectElement.scrollTop || 0;
-        if(optionTop < currentScroll) {
-          selectElement.scrollTop = optionTop;
-        } else if(optionTop + optionHeight > currentScroll + selectHeight) {
-          selectElement.scrollTop = optionTop + optionHeight - selectHeight;
-        }
-      }
-    }
-    return true;
-  }
-
-  function isValidCityKeyboardChar(char) {
-    if(!char) {
-      return false;
-    }
-    return /^[0-9a-z\u0600-\u06ff]$/i.test(char);
-  }
-
-  function scheduleCityKeyboardReset() {
-    if(cityKeyboardResetTimeoutId) {
-      clearTimeout(cityKeyboardResetTimeoutId);
-    }
-    cityKeyboardResetTimeoutId = window.setTimeout(() => {
-      cityKeyboardResetTimeoutId = null;
-      cityKeyboardBuffer = '';
-    }, CITY_KEYBOARD_RESET_DELAY);
-  }
-
-  function clearCityKeyboardBuffer() {
-    cityKeyboardBuffer = '';
-    if(cityKeyboardResetTimeoutId) {
-      clearTimeout(cityKeyboardResetTimeoutId);
-      cityKeyboardResetTimeoutId = null;
-    }
-    const proxy = document.getElementById('citySelectKeyboardProxy');
-    if(proxy) {
-      proxy.value = '';
-    }
-  }
-
-  function handleCityKeyboardInput(event) {
-    const selectElement = document.getElementById('citySelect');
-    if(!selectElement) {
-      return;
-    }
-    const value = event.target.value;
-    if(!value) {
-      return;
-    }
-    const lastChar = value.slice(-1);
-    event.target.value = '';
-    if(!isValidCityKeyboardChar(lastChar)) {
-      return;
-    }
-    cityKeyboardBuffer += lastChar.toLowerCase();
-    scheduleCityKeyboardReset();
-    focusCityOptionByQuery(selectElement, cityKeyboardBuffer);
-  }
-
-  function handleCitySelectPhysicalTyping(event) {
-    if(prefersCityKeyboardProxy) {
-      return;
-    }
-    if(event.key === 'Backspace') {
-      cityKeyboardBuffer = cityKeyboardBuffer.slice(0, -1);
-      scheduleCityKeyboardReset();
-      event.preventDefault();
-      const selectElement = event.currentTarget;
-      if(cityKeyboardBuffer) {
-        focusCityOptionByQuery(selectElement, cityKeyboardBuffer);
-      }
-      return;
-    }
-    if(event.key === 'Escape') {
-      clearCityKeyboardBuffer();
-      return;
-    }
-    if(event.key.length !== 1 || event.altKey || event.metaKey || event.ctrlKey) {
-      return;
-    }
-    if(!isValidCityKeyboardChar(event.key)) {
-      return;
-    }
-    cityKeyboardBuffer += event.key.toLowerCase();
-    scheduleCityKeyboardReset();
-    if(focusCityOptionByQuery(event.currentTarget, cityKeyboardBuffer)) {
-      event.preventDefault();
-    }
-  }
-
-  function requestCityKeyboardProxyFocus() {
-    if(!prefersCityKeyboardProxy) {
-      return;
-    }
-    const proxy = document.getElementById('citySelectKeyboardProxy');
-    if(!proxy) {
-      return;
-    }
-    proxy.value = '';
-    proxy.focus({ preventScroll: true });
-  }
-
-  function handleCitySelectPointerDown(event) {
-    if(event.pointerType === 'mouse') {
-      prefersCityKeyboardProxy = false;
-      return;
-    }
-    if(event.pointerType === 'touch' || event.pointerType === 'pen') {
-      prefersCityKeyboardProxy = true;
-      clearCityKeyboardBuffer();
-      requestCityKeyboardProxyFocus();
-    }
-  }
-
-  function handleCitySelectTouchStartFallback(event) {
-    prefersCityKeyboardProxy = true;
-    clearCityKeyboardBuffer();
-    requestCityKeyboardProxyFocus();
-  }
-
-  function handleCitySelectFocus() {
-    if(prefersCityKeyboardProxy) {
-      requestCityKeyboardProxyFocus();
-    }
-  }
 
   function handleReload() {
     window.location.reload();
@@ -1142,7 +1059,16 @@
     const type = document.getElementById('conversionType').value;
     const resultDiv = document.getElementById('result');
     const downloadBtn = document.getElementById('downloadBtn');
+    const searchInput = document.getElementById('citySearchInput');
     const zoneConfig = getCurrentZoneConfig();
+
+    if(!selectedCityName) {
+      resultDiv.innerText = 'الرجاء اختيار مدينة عبر مربع البحث قبل تحويل ملفات CSV.';
+      if(searchInput) {
+        searchInput.focus();
+      }
+      return;
+    }
 
     if(!zoneConfig) {
       resultDiv.innerText = 'لا يوجد نظام إسقاط صالح لهذا التحويل. الرجاء اختيار مدينة مرتبطة بمنطقة معتمدة.';
@@ -1223,11 +1149,13 @@
   function convertSingle() {
     const type = document.getElementById('conversionType').value;
     const resultDiv = document.getElementById('singleResult');
-    const citySelect = document.getElementById('citySelect');
-    if(citySelect && !citySelect.value) {
-      resultDiv.innerText = 'الرجاء اختيار مدينة من القائمة قبل إجراء التحويل.';
+    const searchInput = document.getElementById('citySearchInput');
+    if(!selectedCityName) {
+      resultDiv.innerText = 'الرجاء اختيار مدينة عبر مربع البحث قبل إجراء التحويل.';
       setSingleResultCopyAvailability();
-      citySelect.focus();
+      if(searchInput) {
+        searchInput.focus();
+      }
       return;
     }
     const zoneConfig = getCurrentZoneConfig();
@@ -1312,46 +1240,20 @@
     URL.revokeObjectURL(url);
   }
 
-  const citySelectElement = document.getElementById('citySelect');
-  if(citySelectElement) {
-    citySelectElement.addEventListener('change', handleCitySelection);
-    citySelectElement.addEventListener('keydown', handleCitySelectPhysicalTyping);
-    citySelectElement.addEventListener('blur', clearCityKeyboardBuffer);
-    citySelectElement.addEventListener('focus', handleCitySelectFocus);
-    if(typeof citySelectElement.addEventListener === 'function') {
-      citySelectElement.addEventListener('pointerdown', handleCitySelectPointerDown, { passive: false });
-      if(!window.PointerEvent) {
-        citySelectElement.addEventListener('touchstart', handleCitySelectTouchStartFallback, { passive: false });
-      }
-    }
-  }
-  const cityKeyboardProxy = document.getElementById('citySelectKeyboardProxy');
-  if(cityKeyboardProxy) {
-    cityKeyboardProxy.addEventListener('input', handleCityKeyboardInput);
-    cityKeyboardProxy.addEventListener('blur', clearCityKeyboardBuffer);
-  }
   const citySearchInputElement = document.getElementById('citySearchInput');
   if(citySearchInputElement) {
     citySearchInputElement.addEventListener('input', handleCitySearchInput);
     citySearchInputElement.addEventListener('focus', handleCitySearchFocus);
     citySearchInputElement.addEventListener('keydown', handleCitySearchKeyDown);
+    citySearchInputElement.addEventListener('blur', handleCitySearchBlur);
   }
-  const cityDropdownButtonElement = document.getElementById('cityDropdownButton');
-  if(cityDropdownButtonElement) {
-    cityDropdownButtonElement.addEventListener('click', () => {
-      const selectElement = document.getElementById('citySelect');
-      if(selectElement) {
-        if(typeof selectElement.showPicker === 'function') {
-          selectElement.showPicker();
-        } else {
-          selectElement.focus();
-        }
-      }
-      if(citySearchInputElement && !citySearchInputElement.disabled) {
-        citySearchInputElement.focus();
-      }
-    });
+  const citySuggestionsListElement = document.getElementById('citySuggestionsList');
+  if(citySuggestionsListElement) {
+    citySuggestionsListElement.addEventListener('mousedown', (event) => event.preventDefault());
+    citySuggestionsListElement.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
+    citySuggestionsListElement.addEventListener('click', handleCitySuggestionClick);
   }
+  document.addEventListener('click', handleOutsideCitySuggestionClick);
   document.getElementById('conversionType').addEventListener('change', updateFileHint);
   document.getElementById('csvFile').addEventListener('change', handleCsvFileChange);
   window.addEventListener('beforeunload', stopGeoWatch);
