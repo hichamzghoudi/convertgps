@@ -804,9 +804,25 @@
     if(matchIndex === -1) {
       return false;
     }
+    const matchedOption = options[matchIndex];
     if(selectElement.selectedIndex !== matchIndex) {
       selectElement.selectedIndex = matchIndex;
       selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if(matchedOption) {
+      if(typeof matchedOption.scrollIntoView === 'function') {
+        matchedOption.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      } else if(typeof selectElement.scrollTop === 'number') {
+        const optionTop = matchedOption.offsetTop || 0;
+        const optionHeight = matchedOption.offsetHeight || 0;
+        const selectHeight = selectElement.clientHeight || 0;
+        const currentScroll = selectElement.scrollTop || 0;
+        if(optionTop < currentScroll) {
+          selectElement.scrollTop = optionTop;
+        } else if(optionTop + optionHeight > currentScroll + selectHeight) {
+          selectElement.scrollTop = optionTop + optionHeight - selectHeight;
+        }
+      }
     }
     return true;
   }
@@ -910,12 +926,20 @@
     if(event.pointerType === 'touch' || event.pointerType === 'pen') {
       prefersCityKeyboardProxy = true;
       clearCityKeyboardBuffer();
+      requestCityKeyboardProxyFocus();
     }
   }
 
   function handleCitySelectTouchStartFallback(event) {
     prefersCityKeyboardProxy = true;
     clearCityKeyboardBuffer();
+    requestCityKeyboardProxyFocus();
+  }
+
+  function handleCitySelectFocus() {
+    if(prefersCityKeyboardProxy) {
+      requestCityKeyboardProxyFocus();
+    }
   }
 
   function handleReload() {
@@ -1147,6 +1171,7 @@
     citySelectElement.addEventListener('change', handleCitySelection);
     citySelectElement.addEventListener('keydown', handleCitySelectPhysicalTyping);
     citySelectElement.addEventListener('blur', clearCityKeyboardBuffer);
+    citySelectElement.addEventListener('focus', handleCitySelectFocus);
     if(typeof citySelectElement.addEventListener === 'function') {
       citySelectElement.addEventListener('pointerdown', handleCitySelectPointerDown, { passive: false });
       if(!window.PointerEvent) {
