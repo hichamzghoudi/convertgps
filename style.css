@@ -219,6 +219,39 @@ button {
 
 button:hover { background: #199a64; }
 
+.marker-popover {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  min-width: 190px;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.95rem;
+  color: var(--text-strong);
+}
+
+.marker-popover-body {
+  direction: ltr;
+  text-align: left;
+}
+
+.marker-remove-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 999px;
+  background: #d61f46;
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(214, 31, 70, 0.35);
+}
+
+.marker-remove-btn:hover {
+  background: #aa1438;
+}
+
 .reload-btn {
   margin-top: 14px;
   margin-bottom: 12px;
@@ -322,6 +355,20 @@ button:disabled {
   position: relative;
 }
 
+.map-dropdown {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 600;
+}
+
+.map-dropdown .btn {
+  min-width: 0;
+  padding: 10px 18px;
+  border-radius: 999px;
+  box-shadow: 0 16px 32px rgba(15, 27, 44, 0.2);
+}
+
 #map {
   width: 100%;
   height: 380px;
@@ -334,7 +381,6 @@ button:disabled {
 .leaflet-bottom.leaflet-left .leaflet-control-scale {
   margin-bottom: 70px;
 }
-
 .gps-btn {
   position: absolute;
   top: 20px;

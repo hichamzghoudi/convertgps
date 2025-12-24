@@ -95,7 +95,7 @@
 
     <div class="map-box">
       <h3>عرض النقطة على الخريطة</h3>
-      <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها.</p>
+      <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها، ويمكنك أيضًا النقر على الخريطة لوضع علامة جديدة.</p>
       <div class="map-wrapper">
         <button type="button" class="gps-btn" onclick="locateUser()" aria-label="إظهار موقعي الحالي"><i class="bi bi-geo-alt-fill"></i></button>
         <button type="button" class="basemap-btn" id="basemapToggle" onclick="toggleBasemap()" aria-pressed="false">التبديل بين الخرائط</button>
@@ -291,6 +291,7 @@
     L.control.scale({ position: 'bottomleft', metric: true, imperial: false }).addTo(mapInstance);
 
     applyBasemapLayer(currentBasemapIndex);
+    mapInstance.on('click', handleMapClick);
 
   }
 
@@ -319,8 +320,19 @@
     applyBasemapLayer(nextIndex);
   }
 
+  function getConversionMarkerPopupHtml(bodyHtml) {
+    const safeBody = bodyHtml || 'تم تثبيت النقطة.';
+    return `
+      <div class="marker-popover">
+        <button type="button" class="marker-remove-btn" aria-label="حذف النقطة" onclick="removeConversionMarker()">حذف</button>
+        <div class="marker-popover-body">${safeBody}</div>
+      </div>
+    `;
+  }
+
   function updateBasemapToggleLabel() {
     const toggleBtn = document.getElementById('basemapToggle');
+    const nextMenuItem = document.getElementById('nextBasemapMenuItem');
     if(!toggleBtn) {
       return;
     }
@@ -329,6 +341,9 @@
     toggleBtn.textContent = ` ( الانتقال إلى ${next.label})`;
     toggleBtn.setAttribute('aria-label', `التبديل من ${current.label} إلى ${next.label}`);
     toggleBtn.setAttribute('aria-pressed', current.key === 'imagery' ? 'true' : 'false');
+    if(nextMenuItem) {
+      nextMenuItem.textContent = ` ( الانتقال إلى ${next.label})`;
+    }
   }
 
   function updateConversionMarker(latitude, longitude, labelText, zoomLevel = 14) {
@@ -347,10 +362,19 @@
     } else {
       conversionMarker.setLatLng(target);
     }
-    if(labelText) {
-      conversionMarker.bindPopup(labelText).openPopup();
-    }
+    const popupHtml = getConversionMarkerPopupHtml(labelText);
+    conversionMarker.bindPopup(popupHtml).openPopup();
     mapInstance.setView(target, zoomLevel);
+  }
+
+  function removeConversionMarker() {
+    if(conversionMarker && mapInstance) {
+      mapInstance.removeLayer(conversionMarker);
+      conversionMarker = null;
+    }
+    if(mapInstance) {
+      mapInstance.closePopup();
+    }
   }
 
   function updateUserLocationMarker(latitude, longitude, labelText, zoomLevel = 16) {
@@ -373,6 +397,22 @@
       userMarker.bindPopup(labelText).openPopup();
     }
     mapInstance.setView(target, zoomLevel);
+  }
+
+  function handleMapClick(event) {
+    if(!event || !event.latlng) {
+      return;
+    }
+    const latitude = event.latlng.lat;
+    const longitude = event.latlng.lng;
+    setDmsInputsFromDecimal(latitude, longitude);
+    const latText = formatDMS(decimalToDMS(latitude, true));
+    const lonText = formatDMS(decimalToDMS(longitude, false));
+    updateConversionMarker(latitude, longitude, `نقطة محددة يدويًا<br>${wrapDmsHtml(latText, lonText)}`);
+    const conversionTypeElement = document.getElementById('conversionType');
+    if(conversionTypeElement && conversionTypeElement.value === 'latlong-to-Merchich') {
+      convertSingle();
+    }
   }
 
   function locateUser() {
@@ -588,6 +628,37 @@
   function padSeconds(seconds) {
     const str = seconds.toFixed(2);
     return seconds < 10 ? `0${str}` : str;
+  }
+
+  function setDmsInputsFromDecimal(latitude, longitude) {
+    const latDms = decimalToDMS(latitude, true);
+    const lonDms = decimalToDMS(longitude, false);
+    applyDmsToInputs('lat', latDms);
+    applyDmsToInputs('lon', lonDms);
+    setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
+    validateGeographicInputs();
+  }
+
+  function applyDmsToInputs(prefix, dms) {
+    if(!dms) {
+      return;
+    }
+    const degreeInput = document.getElementById(`${prefix}Deg`);
+    if(degreeInput) {
+      degreeInput.value = padTwoDigits(dms.degrees);
+    }
+    const minuteInput = document.getElementById(`${prefix}Min`);
+    if(minuteInput) {
+      minuteInput.value = padTwoDigits(dms.minutes);
+    }
+    const secondInput = document.getElementById(`${prefix}Sec`);
+    if(secondInput) {
+      secondInput.value = padSeconds(dms.seconds);
+    }
+    const hemisphereSelect = document.getElementById(`${prefix}Hemisphere`);
+    if(hemisphereSelect) {
+      hemisphereSelect.value = dms.hemisphere;
+    }
   }
 
   function enforceNumericCharacters(input, options = {}) {
