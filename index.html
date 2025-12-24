@@ -133,28 +133,89 @@
 
   const zoneValidationLimits = {
     Zone_I: {
-      latRange: { min: 31.7278666667, max: 34.8717277778 },
-      lonRange: { min: -9.8000, max: -1.8000 },
-      planarX: { min: 200000, max: 900000 },
-      planarY: { min: 150000, max: 650000 }
+      latRange: { min: 31.72786641202, max: 34.8717272112 }
     },
     Zone_II: {
-      latRange: { min: 28.1063305556, max: 31.2932777778 },
-      lonRange: { min: -10.9000, max: -5.4000 },
-      planarX: { min: 180000, max: 850000 },
-      planarY: { min: 120000, max: 620000 }
+      latRange: { min: 28.10632948, max: 31.2932791054 }
     },
     Zone_III: {
-      latRange: { min: 24.5075333333, max: 27.6921083333 },
-      lonRange: { min: -13.2000, max: -6.8000 },
-      planarX: { min: 900000, max: 1600000 },
-      planarY: { min: 150000, max: 700000 }
+      latRange: { min: 24.5075340813, max: 27.6921073632 }
     },
     Zone_IV: {
-      latRange: { min: 20.9075750000, max: 24.0921055556 },
-      lonRange: { min: -15.5000, max: -8.8000 },
-      planarX: { min: 1200000, max: 1900000 },
-      planarY: { min: 200000, max: 800000 }
+      latRange: { min: 20.9075742561, max: 24.092105054 }
+    }
+  };
+
+  const MOROCCO_BOUNDARY = {
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [-5.193863, 35.755182],
+        [-4.591006, 35.330712],
+        [-3.640057, 35.399855],
+        [-2.604306, 35.179093],
+        [-2.169914, 35.168396],
+        [-1.792986, 34.527919],
+        [-1.733455, 33.919713],
+        [-1.388049, 32.864015],
+        [-1.124551, 32.651522],
+        [-1.307899, 32.262889],
+        [-2.616605, 32.094346],
+        [-3.06898, 31.724498],
+        [-3.647498, 31.637294],
+        [-3.690441, 30.896952],
+        [-4.859646, 30.501188],
+        [-5.242129, 30.000443],
+        [-6.060632, 29.7317],
+        [-7.059228, 29.579228],
+        [-8.674116, 28.841289],
+        [-8.66559, 27.656426],
+        [-8.817809, 27.656426],
+        [-8.817828, 27.656426],
+        [-8.794884, 27.120696],
+        [-9.413037, 27.088476],
+        [-9.735343, 26.860945],
+        [-10.189424, 26.860945],
+        [-10.551263, 26.990808],
+        [-11.392555, 26.883424],
+        [-11.71822, 26.104092],
+        [-12.030759, 26.030866],
+        [-12.500963, 24.770116],
+        [-13.89111, 23.691009],
+        [-14.221168, 22.310163],
+        [-14.630833, 21.86094],
+        [-14.750955, 21.5006],
+        [-17.002962, 21.420734],
+        [-17.020428, 21.42231],
+        [-16.973248, 21.885745],
+        [-16.589137, 22.158234],
+        [-16.261922, 22.67934],
+        [-16.326414, 23.017768],
+        [-15.982611, 23.723358],
+        [-15.426004, 24.359134],
+        [-15.089332, 24.520261],
+        [-14.824645, 25.103533],
+        [-14.800926, 25.636265],
+        [-14.43994, 26.254418],
+        [-13.773805, 26.618892],
+        [-13.139942, 27.640148],
+        [-13.121613, 27.654148],
+        [-12.618837, 28.038186],
+        [-11.688919, 28.148644],
+        [-10.900957, 28.832142],
+        [-10.399592, 29.098586],
+        [-9.564811, 29.933574],
+        [-9.814718, 31.177736],
+        [-9.434793, 32.038096],
+        [-9.300693, 32.564679],
+        [-8.657476, 33.240245],
+        [-7.654178, 33.697065],
+        [-6.912544, 34.110476],
+        [-6.244342, 35.145865],
+        [-5.929994, 35.759988],
+        [-5.193863, 35.755182]
+      ]]
     }
   };
   const defaultZoneKey = 'Zone_I';
@@ -203,7 +264,8 @@
   const LON_INPUT_IDS = ['lonDeg', 'lonMin', 'lonSec'];
   const CARTESIAN_INPUT_IDS = ['manualX', 'manualY'];
   const GEO_COORD_INPUT_IDS = [...LAT_INPUT_IDS, ...LON_INPUT_IDS];
-  const ZONE_RANGE_ERROR_TEXT = 'Values are out of the allowed zone range.';
+  const ZONE_RANGE_ERROR_TEXT = 'النقطة خارج النطاق الرسمي لهذه Zone';
+  const MOROCCO_DOMAIN_ERROR_TEXT = 'النقطة خارج المجال الجغرافي للمغرب';
   let citySuggestionsHideTimeoutId = null;
 
   function initMap() {
@@ -660,11 +722,71 @@
     });
   }
 
-  function getActiveValidationLimits() {
-    if(zoneValidationLimits[currentZoneKey]) {
-      return zoneValidationLimits[currentZoneKey];
+  function getActiveLatitudeRange() {
+    const active = zoneValidationLimits[currentZoneKey];
+    if(active && active.latRange) {
+      return active.latRange;
     }
-    return zoneValidationLimits[defaultZoneKey] || null;
+    const fallback = zoneValidationLimits[defaultZoneKey];
+    return fallback ? fallback.latRange || null : null;
+  }
+
+  function isLatitudeWithinActiveRange(latitude) {
+    const latRange = getActiveLatitudeRange();
+    if(!latRange || !Number.isFinite(latitude)) {
+      return false;
+    }
+    return latitude >= latRange.min && latitude <= latRange.max;
+  }
+
+  function isPointInsideMorocco(longitude, latitude) {
+    const geometry = MOROCCO_BOUNDARY.geometry || MOROCCO_BOUNDARY;
+    if(!geometry || !geometry.coordinates) {
+      return false;
+    }
+    const polygons = geometry.type === 'MultiPolygon'
+      ? geometry.coordinates
+      : [geometry.coordinates];
+    for(const polygon of polygons) {
+      if(isPointInsidePolygonRings(longitude, latitude, polygon)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function isPointInsidePolygonRings(longitude, latitude, rings) {
+    if(!Array.isArray(rings) || !rings.length) {
+      return false;
+    }
+    if(!isPointInRing(longitude, latitude, rings[0])) {
+      return false;
+    }
+    for(let i = 1; i < rings.length; i++) {
+      if(isPointInRing(longitude, latitude, rings[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function isPointInRing(longitude, latitude, ring) {
+    if(!Array.isArray(ring) || ring.length < 4) {
+      return false;
+    }
+    let inside = false;
+    for(let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0];
+      const yi = ring[i][1];
+      const xj = ring[j][0];
+      const yj = ring[j][1];
+      const intersects = ((yi > latitude) !== (yj > latitude))
+        && (longitude < (xj - xi) * (latitude - yi) / ((yj - yi) || 1e-12) + xi);
+      if(intersects) {
+        inside = !inside;
+      }
+    }
+    return inside;
   }
 
   function getDmsDecimal(prefix) {
@@ -678,8 +800,7 @@
 
   function validateGeographicInputs() {
     const conversionType = document.getElementById('conversionType').value;
-    const limits = getActiveValidationLimits();
-    if(conversionType !== 'latlong-to-Merchich' || !selectedCityName || !limits) {
+    if(conversionType !== 'latlong-to-Merchich' || !selectedCityName) {
       setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
       return { status: 'skipped' };
     }
@@ -696,64 +817,22 @@
       return { status: 'invalid-input' };
     }
 
-    const latRange = limits.latRange;
-    const lonRange = limits.lonRange;
-    if(!latRange || !lonRange) {
-      setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
-      return { status: 'range-missing', latValue, lonValue };
-    }
-
-    const latInRange = latValue >= latRange.min && latValue <= latRange.max;
-    const lonInRange = lonValue >= lonRange.min && lonValue <= lonRange.max;
-    const isValid = latInRange && lonInRange;
-    if(!isValid) {
+    const latInRange = isLatitudeWithinActiveRange(latValue);
+    if(!latInRange) {
       setInputsValidity(GEO_COORD_INPUT_IDS, { isValid: false, message: ZONE_RANGE_ERROR_TEXT });
     } else {
       setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
     }
-    return { status: 'validated', isValid, latValue, lonValue };
+    return { status: 'validated', isValid: latInRange, latValue, lonValue };
   }
 
-  function validatePlanarInputs() {
-    const conversionType = document.getElementById('conversionType').value;
-    const limits = getActiveValidationLimits();
-    if(conversionType !== 'Merchich-to-latlong' || !selectedCityName || !limits) {
-      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
-      return { status: 'skipped' };
-    }
-
-    if(!areInputsFilled(CARTESIAN_INPUT_IDS)) {
-      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
-      return { status: 'incomplete' };
-    }
-
-    const xValue = parseFloat(document.getElementById('manualX').value);
-    const yValue = parseFloat(document.getElementById('manualY').value);
-    if(!Number.isFinite(xValue) || !Number.isFinite(yValue)) {
-      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
-      return { status: 'invalid-input' };
-    }
-
-    const xRange = limits.planarX;
-    const yRange = limits.planarY;
-    if(!xRange || !yRange) {
-      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
-      return { status: 'range-missing', xValue, yValue };
-    }
-
-    const inRange = xValue >= xRange.min && xValue <= xRange.max
-      && yValue >= yRange.min && yValue <= yRange.max;
-    if(!inRange) {
-      setInputsValidity(CARTESIAN_INPUT_IDS, { isValid: false, message: ZONE_RANGE_ERROR_TEXT });
-    } else {
-      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
-    }
-    return { status: 'validated', isValid: inRange, xValue, yValue };
+  function resetPlanarValidity() {
+    setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
   }
 
   function validateAllCoordinateGroups() {
     validateGeographicInputs();
-    validatePlanarInputs();
+    resetPlanarValidity();
   }
 
   function formatDMS(dms) {
@@ -907,7 +986,7 @@
       }
       const handler = () => {
         enforceNumericCharacters(element, options);
-        validatePlanarInputs();
+        resetPlanarValidity();
       };
       element.addEventListener('input', handler);
       element.addEventListener('blur', handler);
@@ -1430,7 +1509,13 @@
         let output = `الإحداثيات المحوّلة (عمود A = Latitude، عمود B = Longitude) — ${zoneLabel}:\n\n`;
         const convertedRows = [];
 
+        let invalidLatitudeDetected = false;
+        let outsideMoroccoDetected = false;
+
         data.forEach((row, index) => {
+          if(invalidLatitudeDetected || outsideMoroccoDetected) {
+            return;
+          }
           const xVal = getCsvField(row, 'X');
           const yVal = getCsvField(row, 'Y');
           if(xVal === undefined || yVal === undefined) return;
@@ -1439,11 +1524,37 @@
           if(isNaN(x) || isNaN(y)) return;
 
           const [lon, lat] = proj4(zoneConfig.proj, wgs84, [x, y]);
+          if(!isLatitudeWithinActiveRange(lat)) {
+            invalidLatitudeDetected = true;
+            return;
+          }
+          if(!isPointInsideMorocco(lon, lat)) {
+            outsideMoroccoDetected = true;
+            return;
+          }
           const latDms = decimalToDMS(lat, true);
           const lonDms = decimalToDMS(lon, false);
           output += `Ligne ${index+1} : Latitude ${formatDMS(latDms)}, Longitude ${formatDMS(lonDms)}\n`;
           convertedRows.push({ Latitude: formatDMS(latDms), Longitude: formatDMS(lonDms) });
         });
+
+        if(invalidLatitudeDetected) {
+          resultDiv.innerText = ZONE_RANGE_ERROR_TEXT;
+          lastConvertedRows = [];
+          lastConvertedFields = null;
+          lastConversionType = null;
+          if(downloadBtn) downloadBtn.disabled = true;
+          return;
+        }
+
+        if(outsideMoroccoDetected) {
+          resultDiv.innerText = MOROCCO_DOMAIN_ERROR_TEXT;
+          lastConvertedRows = [];
+          lastConvertedFields = null;
+          lastConversionType = null;
+          if(downloadBtn) downloadBtn.disabled = true;
+          return;
+        }
 
         if(!convertedRows.length) {
           const attempted = data.length;
@@ -1483,23 +1594,39 @@
     const zoneLabel = getZoneDisplayLabel(currentZoneKey) || 'Zone I';
 
     if(type === "latlong-to-Merchich") {
-      const latDeg = parseFloat(document.getElementById('latDeg').value);
-      const latMin = parseFloat(document.getElementById('latMin').value);
-      const latSec = readSecondsValue('latSec');
-      const lonDeg = parseFloat(document.getElementById('lonDeg').value);
-      const lonMin = parseFloat(document.getElementById('lonMin').value);
-      const lonSec = readSecondsValue('lonSec');
-      const latHem = document.getElementById('latHemisphere').value;
-      const lonHem = document.getElementById('lonHemisphere').value;
-
-      const latitude = dmsToDecimal(latDeg, latMin, latSec, latHem);
-      const longitude = dmsToDecimal(lonDeg, lonMin, lonSec, lonHem);
-
-      if(isNaN(latitude) || isNaN(longitude)) {
+      const geoValidation = validateGeographicInputs();
+      if(geoValidation.status === 'incomplete') {
+        resultDiv.innerText = 'الرجاء إدخال قيم كاملة للخطوط قبل التحويل.';
+        setSingleResultCopyAvailability();
+        return;
+      }
+      if(geoValidation.status === 'invalid-input') {
         resultDiv.innerText = "Veuillez saisir des degrés, minutes et secondes valides pour la latitude et la longitude.";
         setSingleResultCopyAvailability();
         return;
       }
+      if(geoValidation.status !== 'validated') {
+        resultDiv.innerText = 'لا يمكن التحقق من المدخلات الحالية. تأكد من اختيار مدينة مرتبطة بمنطقة معتمدة.';
+        setSingleResultCopyAvailability();
+        return;
+      }
+      if(!geoValidation.isValid) {
+        resultDiv.innerText = ZONE_RANGE_ERROR_TEXT;
+        setSingleResultCopyAvailability();
+        return;
+      }
+
+      const latitude = geoValidation.latValue;
+      const longitude = geoValidation.lonValue;
+
+      if(!isPointInsideMorocco(longitude, latitude)) {
+        setInputsValidity(GEO_COORD_INPUT_IDS, { isValid: false, message: MOROCCO_DOMAIN_ERROR_TEXT });
+        resultDiv.innerText = MOROCCO_DOMAIN_ERROR_TEXT;
+        setSingleResultCopyAvailability();
+        return;
+      }
+
+      setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
 
       const [xMerchich, yMerchich] = proj4(wgs84, zoneConfig.proj, [longitude, latitude]);
       const xInt = Math.round(xMerchich);
@@ -1520,6 +1647,23 @@
       }
 
       const [lon, lat] = proj4(zoneConfig.proj, wgs84, [xInput, yInput]);
+      const latInZone = isLatitudeWithinActiveRange(lat);
+      if(!latInZone) {
+        resultDiv.innerText = ZONE_RANGE_ERROR_TEXT;
+        setInputsValidity(CARTESIAN_INPUT_IDS, { isValid: false, message: ZONE_RANGE_ERROR_TEXT });
+        setSingleResultCopyAvailability();
+        return;
+      }
+
+      const insideMorocco = isPointInsideMorocco(lon, lat);
+      if(!insideMorocco) {
+        resultDiv.innerText = MOROCCO_DOMAIN_ERROR_TEXT;
+        setInputsValidity(CARTESIAN_INPUT_IDS, { isValid: false, message: MOROCCO_DOMAIN_ERROR_TEXT });
+        setSingleResultCopyAvailability();
+        return;
+      }
+
+      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
       const latDms = decimalToDMS(lat, true);
       const lonDms = decimalToDMS(lon, false);
       const latDmsText = formatDMS(latDms);
