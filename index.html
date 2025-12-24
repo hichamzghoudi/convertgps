@@ -25,18 +25,18 @@
   <div class="conversion-header"> 
       <label class="my-2 conversion-label" for="conversionType">اختر المدينة (اجباري)</label>
       <div class=" mb-3 city-select-block">
+        <input id="citySearchInput" class="form-control city-search-input" type="search" list="citySuggestions" placeholder="ابحث عن المدينة" autocomplete="on" autocorrect="on" autocapitalize="none" spellcheck="false" inputmode="search" aria-label="ابحث عن المدينة" disabled>
         <select id="citySelect" class="form-select city-select bg-secondary bg-opacity-25 rounded" aria-label="ville">
           <option value="">جارٍ تحميل المدن...</option>
         </select>
-        <input id="citySearchInput" class="form-control city-search-input" type="search" list="citySuggestions" placeholder="ابحث عن المدينة بالكتابة" autocomplete="on" autocorrect="on" autocapitalize="none" spellcheck="false" inputmode="search" aria-label="ابحث عن المدينة" disabled>
       </div>
       <datalist id="citySuggestions"></datalist>
       <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
       <label class="my-2 conversion-label" for="conversionType">اختر نوع التحويل:</label>
       <div>
         <select id="conversionType" class="form-select form-select-sm mb-3 bg-secondary bg-opacity-25 rounded" aria-label="اختر نوع التحويل">
-          <option value="Merchich-to-latlong">X/Y  → Lat/Long (D°M'S'')</option>
-          <option value="latlong-to-Merchich">Lat/Long (D°M'S'')  → X/Y</option>
+          <option value="Merchich-to-latlong">X/Y  <span style='font-size:100px; font-weight: bolder;'>&#8680;</span> Lat/Long (D°M'S'')</option>
+          <option value="latlong-to-Merchich">Lat/Long (D°M'S'') <span style='font-size:100px; font-weight: bolder;'>&#8680;</span> X/Y</option>
         </select>
       </div>
   </div>
@@ -738,7 +738,7 @@
     const searchInput = document.getElementById('citySearchInput');
     if(searchInput) {
       if(cityOptionsCache.length) {
-        searchInput.placeholder = 'ابحث عن المدينة بالكتابة';
+        searchInput.placeholder = 'ابحث عن المدينة';
       } else {
         searchInput.placeholder = 'قائمة المدن غير متاحة';
       }
