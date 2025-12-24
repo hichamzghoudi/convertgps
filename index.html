@@ -20,26 +20,28 @@
 <body dir="rtl">
 
 <div class="container">
-  <h3 class="my-3">محول إحداثيات X/Y و Lat/Long (D°M'S'')</h3>
+  <img src="convertgps.png" type="image/x-jpg" alt="" style="width: 2rem; margin: auto; display: flex;">
+  <h4 class="my-3">محول إحداثيات X/Y و Lat/Long (D°M'S'')</h4>
 
   <div class="conversion-header">
-    <div class="city-picker">
+    <div class="city-picker ">
       <label class="conversion-label" for="citySearchInput">اختر المدينة (اجباري)</label>
       <div class="city-select-block">
         <div class="city-search-wrapper">
           <input type="text" id="citySearchInput" class="form-control city-search-input" placeholder="أدخل اسم المدينة..." autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="citySuggestionsList">
+          <button type="button" id="citySearchClearBtn" class="city-clear-btn" aria-label="مسح اسم المدينة" hidden>&times;</button>
           <div id="citySuggestionsList" class="city-suggestions" role="listbox" hidden></div>
         </div>
         <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
       </div>
-      <p class="hint">يتم استخدام المدينة فقط لتأكيد نطاق المنطقة، وسيتم اختيار المنطقة الصحيحة تلقائيًا.</p>
+      <!--<p class="hint">يتم استخدام المدينة فقط لتأكيد نطاق المنطقة، وسيتم اختيار المنطقة الصحيحة تلقائيًا.</p>-->
     </div>
 
     <div class="conversion-type">
       <label class="conversion-label" for="conversionType">اختر نوع التحويل:</label>
       <select id="conversionType" class="form-select form-select-lg mb-3" aria-label="اختر نوع التحويل">
-        <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
-        <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
+        <option value="Merchich-to-latlong">X/Y <span style='font-size:100px;'>&#8667;</span> Lat/Long (D°M'S'')</option>
+        <option value="latlong-to-Merchich">Lat/Long (D°M'S'') <span style='font-size:100px;'>&#8667;</span> X/Y</option>
       </select>
     </div>
   </div>
@@ -47,7 +49,7 @@
   <div class="live-layout">
     <div class="manual-box">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <h3 class="manual-title">تحويل قيمة واحدة</h3>
+        <h4 class="manual-title">تحويل قيمة واحدة</h4>
         <button type="button" class="reload-btn" onclick="handleReload()" aria-label="إعادة تحميل الصفحة">
           <span aria-hidden="true">⟳</span>
         </button>
@@ -1201,6 +1203,7 @@
     }
     hideCitySuggestionsList();
     validateAllCoordinateGroups();
+    syncCityClearButtonVisibility();
   }
 
   function updateCitySearchInputUI({ disabled = false, placeholderText } = {}) {
@@ -1213,6 +1216,7 @@
     if(disabled) {
       searchInput.value = '';
       searchInput.setAttribute('disabled', 'true');
+      syncCityClearButtonVisibility();
       return;
     }
     searchInput.removeAttribute('disabled');
@@ -1220,6 +1224,7 @@
       const label = getCityDisplayLabel(selectedCityName) || selectedCityName;
       searchInput.value = label;
     }
+    syncCityClearButtonVisibility();
   }
 
   // Restrict city search input to alphabetic characters and spaces
@@ -1348,6 +1353,28 @@
     }
   }
 
+  function syncCityClearButtonVisibility() {
+    const input = document.getElementById('citySearchInput');
+    const clearBtn = document.getElementById('citySearchClearBtn');
+    if(!clearBtn) {
+      return;
+    }
+    const isDisabled = Boolean(input && input.hasAttribute('disabled'));
+    const hasValue = Boolean(input && input.value && input.value.trim().length);
+    clearBtn.hidden = isDisabled || !hasValue;
+  }
+
+  function handleCitySearchClear() {
+    const input = document.getElementById('citySearchInput');
+    if(input) {
+      input.value = '';
+      input.focus();
+    }
+    clearSelectedCityState();
+    hideCitySuggestionsList();
+    syncCityClearButtonVisibility();
+  }
+
   function findCityMatchByInput(inputValue) {
     const normalized = inputValue ? inputValue.trim().toLowerCase() : '';
     if(!normalized) {
@@ -1376,6 +1403,7 @@
     } else {
       clearSelectedCityState();
     }
+    syncCityClearButtonVisibility();
   }
 
   function handleCitySearchFocus() {
@@ -1383,6 +1411,7 @@
     const input = document.getElementById('citySearchInput');
     const value = input ? input.value : '';
     renderCitySuggestions(value, true);
+    syncCityClearButtonVisibility();
   }
 
   function handleCitySearchKeyDown(event) {
@@ -1817,6 +1846,10 @@
     citySearchInputElement.addEventListener('keydown', handleCitySearchKeyDown);
     citySearchInputElement.addEventListener('blur', handleCitySearchBlur);
   }
+  const citySearchClearButton = document.getElementById('citySearchClearBtn');
+  if(citySearchClearButton) {
+    citySearchClearButton.addEventListener('click', handleCitySearchClear);
+  }
   const citySuggestionsListElement = document.getElementById('citySuggestionsList');
   if(citySuggestionsListElement) {
     citySuggestionsListElement.addEventListener('click', handleCitySuggestionClick);
@@ -1842,6 +1875,7 @@
   updateConvertButtonState();
   validateAllCoordinateGroups();
   setSingleResultCopyAvailability();
+  syncCityClearButtonVisibility();
 </script>
 
 </body>
