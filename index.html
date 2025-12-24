@@ -25,7 +25,7 @@
   <div class="conversion-header"> 
       <label class="my-2 conversion-label" for="conversionType">اختر المدينة (اجباري)</label>
       <div class=" mb-3 city-select-block">
-        <input id="citySearchInput" class="form-control city-search-input" type="search" list="citySuggestions" placeholder="ابحث عن المدينة" autocomplete="on" autocorrect="on" autocapitalize="none" spellcheck="false" inputmode="search" aria-label="ابحث عن المدينة" disabled>
+        <input id="citySearchInput" class="form-control city-search-input" type="search" list="citySuggestions" placeholder="ابحث عن المدينة" autocomplete="on" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="search" aria-label="ابحث عن المدينة" disabled>
         <select id="citySelect" class="form-select city-select bg-secondary bg-opacity-25 rounded" aria-label="ville">
           <option value="">جارٍ تحميل المدن...</option>
         </select>
@@ -792,6 +792,11 @@
     } else {
       updateCityDisplayInputs();
     }
+    const searchInput = document.getElementById('citySearchInput');
+    if(searchInput) {
+      searchInput.value = '';
+    }
+    renderCitySuggestions('');
   }
 
   function handleCitySearchInput(event) {
