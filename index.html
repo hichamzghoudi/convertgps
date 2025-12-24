@@ -1249,8 +1249,6 @@
   }
   const citySuggestionsListElement = document.getElementById('citySuggestionsList');
   if(citySuggestionsListElement) {
-    citySuggestionsListElement.addEventListener('mousedown', (event) => event.preventDefault());
-    citySuggestionsListElement.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
     citySuggestionsListElement.addEventListener('click', handleCitySuggestionClick);
   }
   document.addEventListener('click', handleOutsideCitySuggestionClick);
