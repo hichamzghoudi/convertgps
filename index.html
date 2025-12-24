@@ -24,18 +24,19 @@
 
   <div class="conversion-header"> 
       <label class="my-2 conversion-label" for="conversionType">اختر المدينة (اجباري)</label>
-      <div class="city-select-block">
-        <select id="citySelect" class="city-select bg-secondary bg-opacity-25 rounded" aria-label="ville">
+      <div class=" mb-3 city-select-block">
+        <select id="citySelect" class="form-select city-select bg-secondary bg-opacity-25 rounded" aria-label="ville">
           <option value="">جارٍ تحميل المدن...</option>
         </select>
-        <input id="citySelectKeyboardProxy" class="city-select-keyboard-proxy" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" aria-hidden="true" tabindex="-1">
+        <input id="citySearchInput" class="form-control city-search-input" type="search" list="citySuggestions" placeholder="ابحث عن المدينة بالكتابة" autocomplete="on" autocorrect="on" autocapitalize="none" spellcheck="false" inputmode="search" aria-label="ابحث عن المدينة" disabled>
       </div>
+      <datalist id="citySuggestions"></datalist>
       <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
       <label class="my-2 conversion-label" for="conversionType">اختر نوع التحويل:</label>
       <div>
         <select id="conversionType" class="form-select form-select-sm mb-3 bg-secondary bg-opacity-25 rounded" aria-label="اختر نوع التحويل">
-          <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
-          <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
+          <option value="Merchich-to-latlong">X/Y  → Lat/Long (D°M'S'')</option>
+          <option value="latlong-to-Merchich">Lat/Long (D°M'S'')  → X/Y</option>
         </select>
       </div>
   </div>
@@ -168,6 +169,7 @@
   let geoWatchId = null;
   let geoWatchTimeoutId = null;
   let coarseLocationWarned = false;
+  let cityOptionsCache = [];
   let cityKeyboardBuffer = '';
   let cityKeyboardResetTimeoutId = null;
   const CITY_KEYBOARD_RESET_DELAY = 1800;
@@ -713,6 +715,110 @@
     return flattened;
   }
 
+  function getCityDisplayLabel(name) {
+    if(!name) {
+      return '';
+    }
+    const match = cityOptionsCache.find((entry) => entry.name === name);
+    return match ? match.display : '';
+  }
+
+  function updateCityDisplayInputs() {
+    const selectElement = document.getElementById('citySelect');
+    const displayInput = document.getElementById('cityDisplayInput');
+    const button = document.getElementById('cityDropdownButton');
+    const selectedValue = selectElement ? selectElement.value : '';
+    const label = selectedValue ? getCityDisplayLabel(selectedValue) : '';
+    if(displayInput) {
+      displayInput.value = label;
+    }
+    if(button) {
+      button.textContent = label || 'اختر من القائمة';
+    }
+    const searchInput = document.getElementById('citySearchInput');
+    if(searchInput) {
+      if(cityOptionsCache.length) {
+        searchInput.placeholder = 'ابحث عن المدينة بالكتابة';
+      } else {
+        searchInput.placeholder = 'قائمة المدن غير متاحة';
+      }
+    }
+  }
+
+  function renderCitySuggestions(filterText = '') {
+    const suggestions = document.getElementById('citySuggestions');
+    if(!suggestions) {
+      return;
+    }
+    suggestions.innerHTML = '';
+    if(!cityOptionsCache.length) {
+      return;
+    }
+    const normalized = filterText.trim().toLowerCase();
+    const matches = cityOptionsCache.filter((entry) => {
+      if(!normalized) {
+        return true;
+      }
+      return entry.name.toLowerCase().startsWith(normalized) || entry.display.toLowerCase().startsWith(normalized);
+    }).slice(0, 20);
+    matches.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.display;
+      suggestions.appendChild(option);
+    });
+  }
+
+  function findCityMatchByInput(inputValue) {
+    const normalized = inputValue ? inputValue.trim().toLowerCase() : '';
+    if(!normalized) {
+      return null;
+    }
+    return cityOptionsCache.find((entry) => entry.display.toLowerCase() === normalized || entry.name.toLowerCase() === normalized)
+      || cityOptionsCache.find((entry) => entry.display.toLowerCase().startsWith(normalized) || entry.name.toLowerCase().startsWith(normalized))
+      || null;
+  }
+
+  function applyCitySelectionFromName(name) {
+    if(!name) {
+      return;
+    }
+    const citySelect = document.getElementById('citySelect');
+    if(!citySelect) {
+      return;
+    }
+    if(citySelect.value !== name) {
+      citySelect.value = name;
+      citySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+      updateCityDisplayInputs();
+    }
+  }
+
+  function handleCitySearchInput(event) {
+    const value = event && event.target ? event.target.value : '';
+    renderCitySuggestions(value);
+    const match = findCityMatchByInput(value);
+    if(match) {
+      applyCitySelectionFromName(match.name);
+    }
+  }
+
+  function handleCitySearchFocus() {
+    prefersCityKeyboardProxy = false;
+    clearCityKeyboardBuffer();
+    renderCitySuggestions(document.getElementById('citySearchInput') ? document.getElementById('citySearchInput').value : '');
+  }
+
+  function handleCitySearchKeyDown(event) {
+    if(event.key === 'Enter') {
+      const match = findCityMatchByInput(event.target.value || '');
+      if(match) {
+        event.preventDefault();
+        applyCitySelectionFromName(match.name);
+      }
+    }
+  }
+
   function initCityPicker() {
     const citySelect = document.getElementById('citySelect');
     if(!citySelect || typeof fetch !== 'function') {
@@ -731,35 +837,69 @@
 
   function populateCitySelect(citySelect, cityData) {
     if(!citySelect) return;
-    citySelect.innerHTML = '';
-    const placeholderOption = document.createElement('option');
-    placeholderOption.value = '';
-    placeholderOption.textContent = 'ville';
-    citySelect.appendChild(placeholderOption);
     const flattened = flattenCityZones(cityData);
     const entries = Object.entries(flattened);
     if(!entries.length) {
+      citySelect.innerHTML = '<option value="">لا توجد مدن متاحة</option>';
       citySelect.disabled = true;
-      placeholderOption.textContent = 'لا توجد مدن متاحة';
+      cityOptionsCache = [];
+      const searchInputEmpty = document.getElementById('citySearchInput');
+      if(searchInputEmpty) {
+        searchInputEmpty.value = '';
+        searchInputEmpty.setAttribute('disabled', 'true');
+      }
+      renderCitySuggestions('');
+      updateCityDisplayInputs();
       return;
     }
-    entries.sort((a, b) => a[0].localeCompare(b[0], 'ar', { sensitivity: 'base', numeric: true }));
-    entries.forEach(([name, zoneKey]) => {
-      const option = document.createElement('option');
+    cityOptionsCache = entries.map(([name, zoneKey]) => {
       const zoneLabel = getZoneDisplayLabel(zoneKey);
-      option.value = name;
-      option.textContent = zoneLabel ? `${name} — ${zoneLabel}` : name;
-      if(zoneKey) {
-        option.dataset.zoneKey = zoneKey;
+      return {
+        name,
+        zoneKey,
+        display: zoneLabel ? `${name} — ${zoneLabel}` : name
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name, 'ar', { sensitivity: 'base', numeric: true }));
+
+    citySelect.innerHTML = '';
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = 'اختر المدينة';
+    placeholderOption.disabled = true;
+    placeholderOption.selected = true;
+    citySelect.appendChild(placeholderOption);
+
+    cityOptionsCache.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.name;
+      option.textContent = entry.display;
+      if(entry.zoneKey) {
+        option.dataset.zoneKey = entry.zoneKey;
       }
       citySelect.appendChild(option);
     });
+    citySelect.disabled = false;
+    const searchInput = document.getElementById('citySearchInput');
+    if(searchInput) {
+      searchInput.value = '';
+      searchInput.removeAttribute('disabled');
+    }
+    renderCitySuggestions('');
+    updateCityDisplayInputs();
   }
 
   function handleCityLoadError(citySelect) {
     if(!citySelect) return;
     citySelect.innerHTML = '<option value="">تعذر تحميل المدن</option>';
     citySelect.disabled = true;
+    cityOptionsCache = [];
+    const searchInput = document.getElementById('citySearchInput');
+    if(searchInput) {
+      searchInput.value = '';
+      searchInput.setAttribute('disabled', 'true');
+    }
+    renderCitySuggestions('');
+    updateCityDisplayInputs();
   }
 
   function handleCitySelection() {
@@ -771,6 +911,7 @@
     const hasSupportedZone = Boolean(normalizedZone && merchichZones[normalizedZone]);
     setActiveZone(hasSupportedZone ? normalizedZone : '');
     updateCityZoneBadge(hasSupportedZone ? getZoneDisplayLabel(normalizedZone) : '');
+    updateCityDisplayInputs();
   }
 
   function updateCityZoneBadge(zoneText) {
@@ -1183,6 +1324,28 @@
   if(cityKeyboardProxy) {
     cityKeyboardProxy.addEventListener('input', handleCityKeyboardInput);
     cityKeyboardProxy.addEventListener('blur', clearCityKeyboardBuffer);
+  }
+  const citySearchInputElement = document.getElementById('citySearchInput');
+  if(citySearchInputElement) {
+    citySearchInputElement.addEventListener('input', handleCitySearchInput);
+    citySearchInputElement.addEventListener('focus', handleCitySearchFocus);
+    citySearchInputElement.addEventListener('keydown', handleCitySearchKeyDown);
+  }
+  const cityDropdownButtonElement = document.getElementById('cityDropdownButton');
+  if(cityDropdownButtonElement) {
+    cityDropdownButtonElement.addEventListener('click', () => {
+      const selectElement = document.getElementById('citySelect');
+      if(selectElement) {
+        if(typeof selectElement.showPicker === 'function') {
+          selectElement.showPicker();
+        } else {
+          selectElement.focus();
+        }
+      }
+      if(citySearchInputElement && !citySearchInputElement.disabled) {
+        citySearchInputElement.focus();
+      }
+    });
   }
   document.getElementById('conversionType').addEventListener('change', updateFileHint);
   document.getElementById('csvFile').addEventListener('change', handleCsvFileChange);

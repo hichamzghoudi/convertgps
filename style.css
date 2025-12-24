@@ -67,24 +67,29 @@ h1, h2 { color: var(--text-strong); }
   position: relative;
 }
 
-.city-select {
-  margin-top: 0;
-  flex: 1;
-  width: 100%;
+.city-select-block {
+  position: relative;
+  gap: 0;
 }
 
-.city-select-keyboard-proxy {
-  position: absolute;
-  inset: 0;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  color: transparent;
-  background: transparent;
+.city-select-block .btn,
+.city-select-block .form-select,
+.city-select-block .form-control {
+  margin-top: 0;
+}
+
+.city-select {
+  min-width: 140px;
+}
+
+.city-display-input {
+  background-color: #f7f8ff;
+}
+
+.city-search-input:disabled {
+  background-color: #f3f4f6;
+  opacity: 1;
+}
 }
 
 .city-zone-badge {
