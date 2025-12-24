@@ -114,60 +114,47 @@
   const wgs84 = proj4.WGS84;
   const merchichZones = {
     Zone_I: {
-      label: 'Zone I (Nord Maroc)',
-      proj: '+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs',
-      constraints: {
-        latMin: 31.7278666667,
-        latMax: 34.8717277778,
-        lonMin: -9.8000,
-        lonMax: -1.8000,
-        xMin: 200000,
-        xMax: 900000,
-        yMin: 150000,
-        yMax: 650000
-      }
+    label: 'Zone I (Nord Maroc)',
+    proj: '+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
     },
     Zone_II: {
       label: 'Zone II (Agadir)',
-      proj: '+proj=lcc +lat_1=29.7 +lat_0=29.7 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs',
-      constraints: {
-        latMin: 28.1063305556,
-        latMax: 31.2932777778,
-        lonMin: -10.9000,
-        lonMax: -5.4000,
-        xMin: 180000,
-        xMax: 850000,
-        yMin: 120000,
-        yMax: 620000
-      }
+      proj: '+proj=lcc +lat_1=29.7 +lat_0=29.7 +lon_0=-5.4 +k_0=0.999615596 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
     },
     Zone_III: {
       label: 'Zone III (La\'youn)',
-      proj: '+proj=lcc +lat_1=26.1 +lat_0=26.1 +lon_0=-5.4 +k_0=0.999625769 +x_0=1200000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs',
-      constraints: {
-        latMin: 24.5075333333,
-        latMax: 27.6921083333,
-        lonMin: -13.2000,
-        lonMax: -6.8000,
-        xMin: 900000,
-        xMax: 1600000,
-        yMin: 150000,
-        yMax: 700000
-      }
+      proj: '+proj=lcc +lat_1=26.1 +lat_0=26.1 +lon_0=-5.4 +k_0=0.999615596 +x_0=1200000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
     },
     Zone_IV: {
       label: 'Zone IV (Ad-Dakhla)',
-      proj: '+proj=lcc +lat_1=22.5 +lat_0=22.5 +lon_0=-5.4 +k_0=0.999625769 +x_0=1500000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs',
-      constraints: {
-        latMin: 20.9075750000,
-        latMax: 24.0921055556,
-        lonMin: -15.5000,
-        lonMax: -8.8000,
-        xMin: 1200000,
-        xMax: 1900000,
-        yMin: 200000,
-        yMax: 800000
-      }
+      proj: '+proj=lcc +lat_1=22.5 +lat_0=22.5 +lon_0=-5.4 +k_0=0.999615596 +x_0=1500000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+    }
+  };
+
+  const zoneValidationLimits = {
+    Zone_I: {
+      latRange: { min: 31.7278666667, max: 34.8717277778 },
+      lonRange: { min: -9.8000, max: -1.8000 },
+      planarX: { min: 200000, max: 900000 },
+      planarY: { min: 150000, max: 650000 }
+    },
+    Zone_II: {
+      latRange: { min: 28.1063305556, max: 31.2932777778 },
+      lonRange: { min: -10.9000, max: -5.4000 },
+      planarX: { min: 180000, max: 850000 },
+      planarY: { min: 120000, max: 620000 }
+    },
+    Zone_III: {
+      latRange: { min: 24.5075333333, max: 27.6921083333 },
+      lonRange: { min: -13.2000, max: -6.8000 },
+      planarX: { min: 900000, max: 1600000 },
+      planarY: { min: 150000, max: 700000 }
+    },
+    Zone_IV: {
+      latRange: { min: 20.9075750000, max: 24.0921055556 },
+      lonRange: { min: -15.5000, max: -8.8000 },
+      planarX: { min: 1200000, max: 1900000 },
+      planarY: { min: 200000, max: 800000 }
     }
   };
   const defaultZoneKey = 'Zone_I';
@@ -215,6 +202,8 @@
   const LAT_INPUT_IDS = ['latDeg', 'latMin', 'latSec'];
   const LON_INPUT_IDS = ['lonDeg', 'lonMin', 'lonSec'];
   const CARTESIAN_INPUT_IDS = ['manualX', 'manualY'];
+  const GEO_COORD_INPUT_IDS = [...LAT_INPUT_IDS, ...LON_INPUT_IDS];
+  const ZONE_RANGE_ERROR_TEXT = 'Values are out of the allowed zone range.';
   let citySuggestionsHideTimeoutId = null;
 
   function initMap() {
@@ -671,19 +660,11 @@
     });
   }
 
-  function getActiveConstraints() {
-    const zoneConfig = getCurrentZoneConfig();
-    if(zoneConfig && zoneConfig.constraints) {
-      return zoneConfig.constraints;
+  function getActiveValidationLimits() {
+    if(zoneValidationLimits[currentZoneKey]) {
+      return zoneValidationLimits[currentZoneKey];
     }
-    return null;
-  }
-
-  function formatRangeMessage(label, min, max, unit = '') {
-    const minText = min.toFixed(5);
-    const maxText = max.toFixed(5);
-    const suffix = unit ? ` ${unit}` : '';
-    return `${label}: المدى المسموح ${minText}${suffix} → ${maxText}${suffix}`;
+    return zoneValidationLimits[defaultZoneKey] || null;
   }
 
   function getDmsDecimal(prefix) {
@@ -695,73 +676,83 @@
     return dmsToDecimal(deg, min, sec, hemisphere);
   }
 
-  function validateGeographicGroup(groupKey) {
+  function validateGeographicInputs() {
     const conversionType = document.getElementById('conversionType').value;
-    const constraints = getActiveConstraints();
-    const isLatGroup = groupKey === 'lat';
-    const inputIds = isLatGroup ? LAT_INPUT_IDS : LON_INPUT_IDS;
-    if(conversionType !== 'latlong-to-Merchich' || !selectedCityName || !constraints) {
-      setInputsValidity(inputIds, { reset: true });
+    const limits = getActiveValidationLimits();
+    if(conversionType !== 'latlong-to-Merchich' || !selectedCityName || !limits) {
+      setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
       return { status: 'skipped' };
     }
 
-    if(!areInputsFilled(inputIds)) {
-      setInputsValidity(inputIds, { reset: true });
+    if(!areInputsFilled(GEO_COORD_INPUT_IDS)) {
+      setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
       return { status: 'incomplete' };
     }
 
-    const decimalValue = getDmsDecimal(isLatGroup ? 'lat' : 'lon');
-    if(!Number.isFinite(decimalValue)) {
-      setInputsValidity(inputIds, { reset: true });
+    const latValue = getDmsDecimal('lat');
+    const lonValue = getDmsDecimal('lon');
+    if(!Number.isFinite(latValue) || !Number.isFinite(lonValue)) {
+      setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
       return { status: 'invalid-input' };
     }
 
-    const min = isLatGroup ? constraints.latMin : constraints.lonMin;
-    const max = isLatGroup ? constraints.latMax : constraints.lonMax;
-    const withinRange = decimalValue >= min && decimalValue <= max;
-    const label = isLatGroup ? 'خط العرض' : 'خط الطول';
-    const message = withinRange ? '' : formatRangeMessage(label, min, max, '°');
-    setInputsValidity(inputIds, { isValid: withinRange, message });
-    return { status: 'validated', isValid: withinRange, value: decimalValue };
-  }
+    const latRange = limits.latRange;
+    const lonRange = limits.lonRange;
+    if(!latRange || !lonRange) {
+      setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
+      return { status: 'range-missing', latValue, lonValue };
+    }
 
-  function validatePlanarField(fieldId, min, max, label) {
-    const element = document.getElementById(fieldId);
-    if(!element) {
-      return { status: 'missing' };
+    const latInRange = latValue >= latRange.min && latValue <= latRange.max;
+    const lonInRange = lonValue >= lonRange.min && lonValue <= lonRange.max;
+    const isValid = latInRange && lonInRange;
+    if(!isValid) {
+      setInputsValidity(GEO_COORD_INPUT_IDS, { isValid: false, message: ZONE_RANGE_ERROR_TEXT });
+    } else {
+      setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
     }
-    const raw = element.value.trim();
-    if(raw === '') {
-      setInputsValidity([fieldId], { reset: true });
-      return { status: 'empty' };
-    }
-    const numericValue = parseFloat(raw);
-    if(!Number.isFinite(numericValue)) {
-      setInputsValidity([fieldId], { reset: true });
-      return { status: 'invalid-input' };
-    }
-    const withinRange = numericValue >= min && numericValue <= max;
-    const message = withinRange ? '' : formatRangeMessage(label, min, max, 'm');
-    setInputsValidity([fieldId], { isValid: withinRange, message });
-    return { status: 'validated', isValid: withinRange, value: numericValue };
+    return { status: 'validated', isValid, latValue, lonValue };
   }
 
   function validatePlanarInputs() {
     const conversionType = document.getElementById('conversionType').value;
-    const constraints = getActiveConstraints();
-    if(conversionType !== 'Merchich-to-latlong' || !selectedCityName || !constraints) {
+    const limits = getActiveValidationLimits();
+    if(conversionType !== 'Merchich-to-latlong' || !selectedCityName || !limits) {
       setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
       return { status: 'skipped' };
     }
-    const xResult = validatePlanarField('manualX', constraints.xMin, constraints.xMax, 'إحداثي X');
-    const yResult = validatePlanarField('manualY', constraints.yMin, constraints.yMax, 'إحداثي Y');
-    const isValid = xResult.isValid !== false && yResult.isValid !== false;
-    return { status: 'validated', isValid, xResult, yResult };
+
+    if(!areInputsFilled(CARTESIAN_INPUT_IDS)) {
+      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
+      return { status: 'incomplete' };
+    }
+
+    const xValue = parseFloat(document.getElementById('manualX').value);
+    const yValue = parseFloat(document.getElementById('manualY').value);
+    if(!Number.isFinite(xValue) || !Number.isFinite(yValue)) {
+      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
+      return { status: 'invalid-input' };
+    }
+
+    const xRange = limits.planarX;
+    const yRange = limits.planarY;
+    if(!xRange || !yRange) {
+      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
+      return { status: 'range-missing', xValue, yValue };
+    }
+
+    const inRange = xValue >= xRange.min && xValue <= xRange.max
+      && yValue >= yRange.min && yValue <= yRange.max;
+    if(!inRange) {
+      setInputsValidity(CARTESIAN_INPUT_IDS, { isValid: false, message: ZONE_RANGE_ERROR_TEXT });
+    } else {
+      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
+    }
+    return { status: 'validated', isValid: inRange, xValue, yValue };
   }
 
   function validateAllCoordinateGroups() {
-    validateGeographicGroup('lat');
-    validateGeographicGroup('lon');
+    validateGeographicInputs();
     validatePlanarInputs();
   }
 
@@ -934,15 +925,15 @@
         element.addEventListener('blur', callback);
       });
     };
-    registerGroup(LAT_INPUT_IDS, () => validateGeographicGroup('lat'));
-    registerGroup(LON_INPUT_IDS, () => validateGeographicGroup('lon'));
+    registerGroup(LAT_INPUT_IDS, () => validateGeographicInputs());
+    registerGroup(LON_INPUT_IDS, () => validateGeographicInputs());
     const latHem = document.getElementById('latHemisphere');
     if(latHem) {
-      latHem.addEventListener('change', () => validateGeographicGroup('lat'));
+      latHem.addEventListener('change', () => validateGeographicInputs());
     }
     const lonHem = document.getElementById('lonHemisphere');
     if(lonHem) {
-      lonHem.addEventListener('change', () => validateGeographicGroup('lon'));
+      lonHem.addEventListener('change', () => validateGeographicInputs());
     }
   }
 
