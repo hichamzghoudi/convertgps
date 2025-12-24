@@ -22,31 +22,37 @@
 <div class="container">
   <h3 class="my-3">محول إحداثيات X/Y و Lat/Long (D°M'S'')</h3>
 
-  <div class="conversion-header"> 
-      <label class="my-2 conversion-label" for="conversionType">اختر المدينة (اجباري)</label>
-      <div class=" mb-3 city-select-block">
+  <div class="conversion-header">
+    <div class="city-picker">
+      <label class="conversion-label" for="citySearchInput">اختر المدينة (اجباري)</label>
+      <div class="city-select-block">
         <div class="city-search-wrapper">
-          <input id="citySearchInput" class="form-control city-search-input bg-success bg-opacity-25" type="search" placeholder="ابحث عن المدينة" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="search" aria-label="ابحث عن المدينة" aria-expanded="false" disabled>
-          <div id="citySuggestionsList" class="city-suggestions" role="listbox" aria-label="قائمة المدن" hidden></div>
+          <input type="text" id="citySearchInput" class="form-control city-search-input" placeholder="أدخل اسم المدينة..." autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="citySuggestionsList">
+          <div id="citySuggestionsList" class="city-suggestions" role="listbox" hidden></div>
         </div>
+        <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
       </div>
-      <label class="my-2 conversion-label" for="conversionType">اختر نوع التحويل:</label>
-      <div>
-        <select id="conversionType" class="form-select form-select-sm mb-3 bg-success bg-opacity-25 rounded" aria-label="اختر نوع التحويل">
-          <option value="Merchich-to-latlong">X/Y  <span style='font-size:100px; font-weight: bolder;'>&#8680;</span> Lat/Long (D°M'S'')</option>
-          <option value="latlong-to-Merchich">Lat/Long (D°M'S'') <span style='font-size:100px; font-weight: bolder;'>&#8680;</span> X/Y</option>
-        </select>
-      </div>
+      <p class="hint">يتم استخدام المدينة فقط لتأكيد نطاق المنطقة، وسيتم اختيار المنطقة الصحيحة تلقائيًا.</p>
+    </div>
+
+    <div class="conversion-type">
+      <label class="conversion-label" for="conversionType">اختر نوع التحويل:</label>
+      <select id="conversionType" class="form-select form-select-lg mb-3" aria-label="اختر نوع التحويل">
+        <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
+        <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
+      </select>
+    </div>
   </div>
+
   <div class="live-layout">
     <div class="manual-box">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h3 class="manual-title">تحويل قيمة واحدة</h3>
         <button type="button" class="reload-btn" onclick="handleReload()" aria-label="إعادة تحميل الصفحة">
           <span aria-hidden="true">⟳</span>
-        </button>        
+        </button>
       </div>
-      
+
       <p class="hint" id="manualHint"></p>
       <div class="manual-fields" id="dmsFields">
         <div class="dms-group">
@@ -56,8 +62,8 @@
             <input type="text" id="latMin" placeholder="دقيقة ′" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
             <input type="text" id="latSec" placeholder="ثانية ″" inputmode="decimal" oninput="sanitizeSeconds(this)" onblur="finalizeSeconds(this)">
             <select id="latHemisphere" class="hemisphere-select">
-              <option value="N"> (N)</option>
-              <option value="S"> (S)</option>
+              <option value="N">(N)</option>
+              <option value="S">(S)</option>
             </select>
           </div>
         </div>
@@ -68,26 +74,28 @@
             <input type="text" id="lonMin" placeholder="دقيقة ′" inputmode="numeric" maxlength="2" oninput="enforceTwoDigits(this)">
             <input type="text" id="lonSec" placeholder="ثانية ″" inputmode="decimal" oninput="sanitizeSeconds(this)" onblur="finalizeSeconds(this)">
             <select id="lonHemisphere" class="hemisphere-select">
-              <option value="E"> (E)</option>
-              <option value="W" selected> (W)</option>
+              <option value="E">(E)</option>
+              <option value="W" selected>(W)</option>
             </select>
           </div>
         </div>
       </div>
+
       <div class="manual-fields" id="cartesianFields">
-        <input type="text" id="manualX" placeholder="X" inputmode="decimal">
-        <input type="text" id="manualY" placeholder="Y" inputmode="decimal">
+        <input type="text" id="manualX" placeholder="X">
+        <input type="text" id="manualY" placeholder="Y">
       </div>
+
       <button class="manual-btn" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
+      <button type="button" id="copySingleResultBtn" class="btntout mt-2" onclick="copySingleResult()" disabled>نسخ النتيجة</button>
       <div class="result single-result" id="singleResult"></div>
-      <button type="button" id="copySingleResultBtn" class="copy-btn" onclick="copySingleResult()" disabled>نسخ النتيجة</button>
     </div>
 
     <div class="map-box">
       <h3>عرض النقطة على الخريطة</h3>
       <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها.</p>
       <div class="map-wrapper">
-        <button type="button" class="gps-btn" onclick="locateUser()" aria-label="إظهار موقعي الحالي"><i class="bi bi-geo-alt-fill"></i> </button>
+        <button type="button" class="gps-btn" onclick="locateUser()" aria-label="إظهار موقعي الحالي"><i class="bi bi-geo-alt-fill"></i></button>
         <button type="button" class="basemap-btn" id="basemapToggle" onclick="toggleBasemap()" aria-pressed="false">التبديل بين الخرائط</button>
         <div id="map"></div>
       </div>
@@ -95,16 +103,13 @@
   </div>
 
   <div id="batchSection">
-    <h3>تحويل عدة قيم </h3>
+    <h3>تحويل عدة قيم</h3>
     <label>اختر ملف CSV للإحداثيات (أعمدة X و Y):</label>
     <input type="file" id="csvFile" accept=".csv">
     <p class="hint" id="fileHint"></p>
     <img src="modelcsvxy.JPG" alt="نموذج ملف CSV" id="csvModelImage" class="csv-image">
-
     <button id="convertBtn" class="btntout" onclick="convertCSV()" disabled>تحويل جميع الإحداثيات</button>
-
     <p class="hint" id="layoutHint">بعد التحويل، ضع قيمة Latitude في العمود A وقيمة Longitude في العمود B داخل ملف Excel قبل أي معالجة إضافية.</p>
-
     <div class="result" id="result"></div>
     <button id="downloadBtn" class="download-btn" onclick="downloadConvertedFile()" disabled>تحميل الملف المحوّل</button>
   </div>
@@ -114,11 +119,11 @@
   const wgs84 = proj4.WGS84;
   const merchichZones = {
     Zone_I: {
-    label: 'Zone I (Nord Maroc)',
-    proj: '+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+      label: 'Zone I (Rabat - Casablanca)',
+      proj: '+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999615596 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
     },
     Zone_II: {
-      label: 'Zone II (Agadir)',
+      label: 'Zone II (Agadir - Marrakech)',
       proj: '+proj=lcc +lat_1=29.7 +lat_0=29.7 +lon_0=-5.4 +k_0=0.999615596 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
     },
     Zone_III: {
@@ -264,8 +269,9 @@
   const LON_INPUT_IDS = ['lonDeg', 'lonMin', 'lonSec'];
   const CARTESIAN_INPUT_IDS = ['manualX', 'manualY'];
   const GEO_COORD_INPUT_IDS = [...LAT_INPUT_IDS, ...LON_INPUT_IDS];
-  const ZONE_RANGE_ERROR_TEXT = 'النقطة خارج النطاق الرسمي لهذه Zone';
+  const ZONE_RANGE_ERROR_TEXT = 'النقطة خارج نطاق Zones المغربية';
   const MOROCCO_DOMAIN_ERROR_TEXT = 'النقطة خارج المجال الجغرافي للمغرب';
+  const ZONE_MISMATCH_WARNING_TEMPLATE = 'هذه النقطة تقع في {actualZone}، وليس {selectedZone}.';
   let citySuggestionsHideTimeoutId = null;
 
   function initMap() {
@@ -412,8 +418,8 @@
 
     updateUserLocationMarker(latitude, longitude, popupText, 16);
 
-    const circleTarget = [latitude, longitude];
-    if(accuracy !== null) {
+    if(accuracy !== null && Number.isFinite(accuracy)) {
+      const circleTarget = [latitude, longitude];
       if(!userAccuracyCircle) {
         userAccuracyCircle = L.circle(circleTarget, {
           radius: accuracy,
@@ -502,13 +508,13 @@
     const batchSection = document.getElementById('batchSection');
     toggleManualFields(type);
 
-    if(type === "latlong-to-Merchich") {
+    if(type === 'latlong-to-Merchich') {
       const disabledMsg = "تحويل الملفات متاح فقط لاتجاه X/Y → Lat/Long (D°M'S''). الرجاء استخدام التحويل اليدوي لهذا الاتجاه.";
       if(hint) {
         hint.dataset.defaultMessage = disabledMsg;
         hint.innerText = disabledMsg;
       }
-      manualHint.innerText = "أدخل خطوط الطول والعرض (D°M'S'') ليتم تحويلها إلى إحداثيات X و Y باستخدام المنطقة المرتبطة بالمدينة المختارة.";
+      manualHint.innerText = "أدخل خطوط الطول والعرض (D°M'S'') ليتم تحويلها إلى إحداثيات X و Y باستخدام المنطقة المناسبة.";
       if(batchSection) batchSection.style.display = 'none';
       if(csvImage) {
         csvImage.style.display = 'none';
@@ -522,12 +528,12 @@
       lastConvertedRows = [];
       lastConvertedFields = null;
     } else {
-      const activeMsg = "ارفع ملف CSV (أعمدة X و Y) بحجم لا يتجاوز 1 ميغابايت وبعدد أسطر لا يتخطى 200 ليتم تحويله إلى Lat/Long (D°M'S'') وفق المنطقة الخاصة بالمدينة المختارة أو المنطقة الافتراضية.";
+      const activeMsg = "ارفع ملف CSV (أعمدة X و Y) بحجم لا يتجاوز 1 ميغابايت وبعدد أسطر لا يتخطى 200 ليتم تحويله إلى Lat/Long (D°M'S'').";
       if(hint) {
         hint.dataset.defaultMessage = activeMsg;
         hint.innerText = activeMsg;
       }
-      manualHint.innerText = " اختر المدينة ثم أدخل إحداثيات (X, Y) يدويًا ليتم تحويلها مباشرة إلى Lat/Long باستخدام المنطقة المناسبة.";
+      manualHint.innerText = "أدخل إحداثيات (X, Y) يدويًا ليتم تحويلها مباشرة إلى Lat/Long باستخدام المنطقة المناسبة.";
       if(batchSection) batchSection.style.display = 'block';
       if(csvImage) {
         csvImage.src = 'modelcsvxy.JPG';
@@ -722,21 +728,17 @@
     });
   }
 
-  function getActiveLatitudeRange() {
-    const active = zoneValidationLimits[currentZoneKey];
-    if(active && active.latRange) {
-      return active.latRange;
+  function getZoneKeyForLatitude(latitude) {
+    if(!Number.isFinite(latitude)) {
+      return null;
     }
-    const fallback = zoneValidationLimits[defaultZoneKey];
-    return fallback ? fallback.latRange || null : null;
-  }
-
-  function isLatitudeWithinActiveRange(latitude) {
-    const latRange = getActiveLatitudeRange();
-    if(!latRange || !Number.isFinite(latitude)) {
-      return false;
+    for(const [zoneKey, limits] of Object.entries(zoneValidationLimits)) {
+      const range = limits.latRange;
+      if(range && latitude >= range.min && latitude <= range.max) {
+        return zoneKey;
+      }
     }
-    return latitude >= latRange.min && latitude <= latRange.max;
+    return null;
   }
 
   function isPointInsideMorocco(longitude, latitude) {
@@ -793,17 +795,105 @@
     if(errorType === 'morocco') {
       return MOROCCO_DOMAIN_ERROR_TEXT;
     }
-    return ZONE_RANGE_ERROR_TEXT;
+    if(errorType === 'zones') {
+      return ZONE_RANGE_ERROR_TEXT;
+    }
+    return 'تعذر تحديد المجال الجغرافي للنقطة.';
   }
 
-  function validateWgs84Point(longitude, latitude) {
-    if(!isLatitudeWithinActiveRange(latitude)) {
-      return { isValid: false, errorType: 'zone' };
+  function formatZoneMismatchMessage(actualZoneKey, selectedZoneKey) {
+    const actualLabel = getZoneDisplayLabel(actualZoneKey) || actualZoneKey || 'منطقة غير معروفة';
+    const selectedLabel = getZoneDisplayLabel(selectedZoneKey) || selectedZoneKey || 'منطقة غير محددة';
+    return ZONE_MISMATCH_WARNING_TEMPLATE
+      .replace('{actualZone}', actualLabel)
+      .replace('{selectedZone}', selectedLabel);
+  }
+
+  function resolveZoneAlignment(actualZoneKey, { requireConfirmation = true } = {}) {
+    if(!actualZoneKey) {
+      return { proceed: false, zoneKey: null, warning: null };
     }
-    if(!isPointInsideMorocco(longitude, latitude)) {
-      return { isValid: false, errorType: 'morocco' };
+
+    const hasUserPreference = Boolean(selectedCityName);
+    const updateActiveZone = () => {
+      setActiveZone(actualZoneKey);
+      updateCityZoneBadge(getZoneDisplayLabel(actualZoneKey));
+    };
+
+    if(!hasUserPreference) {
+      if(currentZoneKey !== actualZoneKey) {
+        updateActiveZone();
+      }
+      return { proceed: true, zoneKey: actualZoneKey, warning: null };
     }
-    return { isValid: true };
+
+    if(currentZoneKey === actualZoneKey) {
+      updateActiveZone();
+      return { proceed: true, zoneKey: actualZoneKey, warning: null };
+    }
+
+    const warning = formatZoneMismatchMessage(actualZoneKey, currentZoneKey);
+    if(!requireConfirmation) {
+      return { proceed: true, zoneKey: actualZoneKey, warning };
+    }
+
+    const actualLabel = getZoneDisplayLabel(actualZoneKey) || actualZoneKey;
+    const confirmMessage = `${warning}\nهل تريد المتابعة باستخدام ${actualLabel}؟`;
+    const accepted = typeof window !== 'undefined'
+      && typeof window.confirm === 'function'
+        ? window.confirm(confirmMessage)
+        : true;
+    if(!accepted) {
+      return { proceed: false, zoneKey: null, warning };
+    }
+    updateActiveZone();
+    return { proceed: true, zoneKey: actualZoneKey, warning };
+  }
+
+  function convertPlanarToWgs84Auto(x, y) {
+    let fallbackReason = null;
+    let fallbackCandidate = null;
+    for(const [zoneKey, zoneConfig] of Object.entries(merchichZones)) {
+      if(!zoneConfig || !zoneConfig.proj) {
+        continue;
+      }
+      let lon;
+      let lat;
+      try {
+        [lon, lat] = proj4(zoneConfig.proj, wgs84, [x, y]);
+      } catch (error) {
+        continue;
+      }
+      if(!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        continue;
+      }
+      if(!isPointInsideMorocco(lon, lat)) {
+        fallbackReason = fallbackReason || 'morocco';
+        continue;
+      }
+      const inferredZoneKey = getZoneKeyForLatitude(lat);
+      if(!inferredZoneKey) {
+        fallbackReason = fallbackReason || 'zones';
+        continue;
+      }
+      const candidate = {
+        status: 'ok',
+        lon,
+        lat,
+        inferredZoneKey,
+        sourceZoneKey: zoneKey
+      };
+      if(inferredZoneKey === zoneKey) {
+        return candidate;
+      }
+      if(!fallbackCandidate) {
+        fallbackCandidate = candidate;
+      }
+    }
+    if(fallbackCandidate) {
+      return fallbackCandidate;
+    }
+    return { status: 'error', errorType: fallbackReason || 'invalid' };
   }
 
   function getDmsDecimal(prefix) {
@@ -817,7 +907,7 @@
 
   function validateGeographicInputs() {
     const conversionType = document.getElementById('conversionType').value;
-    if(conversionType !== 'latlong-to-Merchich' || !selectedCityName) {
+    if(conversionType !== 'latlong-to-Merchich') {
       setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
       return { status: 'skipped' };
     }
@@ -834,15 +924,8 @@
       return { status: 'invalid-input' };
     }
 
-    const domainResult = validateWgs84Point(lonValue, latValue);
-    if(!domainResult.isValid) {
-      const message = getDomainErrorMessage(domainResult.errorType);
-      setInputsValidity(GEO_COORD_INPUT_IDS, { isValid: false, message });
-      return { status: 'validated', isValid: false, latValue, lonValue, errorType: domainResult.errorType };
-    }
-
     setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
-    return { status: 'validated', isValid: true, latValue, lonValue };
+    return { status: 'validated', latValue, lonValue };
   }
 
   function resetPlanarValidity() {
@@ -1471,35 +1554,18 @@
     const type = document.getElementById('conversionType').value;
     const resultDiv = document.getElementById('result');
     const downloadBtn = document.getElementById('downloadBtn');
-    const searchInput = document.getElementById('citySearchInput');
-    const zoneConfig = getCurrentZoneConfig();
-
-    if(!selectedCityName) {
-      resultDiv.innerText = 'الرجاء اختيار مدينة عبر مربع البحث قبل تحويل ملفات CSV.';
-      if(searchInput) {
-        searchInput.focus();
-      }
-      return;
-    }
-
-    if(!zoneConfig) {
-      resultDiv.innerText = 'لا يوجد نظام إسقاط صالح لهذا التحويل. الرجاء اختيار مدينة مرتبطة بمنطقة معتمدة.';
-      return;
-    }
-
-    const zoneLabel = getZoneDisplayLabel(currentZoneKey) || 'Zone I';
 
     lastConvertedRows = [];
     lastConvertedFields = null;
     lastConversionType = null;
     if(downloadBtn) downloadBtn.disabled = true;
 
-    if(type !== "Merchich-to-latlong") {
+    if(type !== 'Merchich-to-latlong') {
       resultDiv.innerText = "تحويل الملفات متاح فقط لاتجاه X/Y → Lat/Long (D°M'S'').";
       return;
     }
 
-    if (!file) {
+    if(!file) {
       resultDiv.innerHTML = "Veuillez d'abord sélectionner un fichier CSV.";
       return;
     }
@@ -1525,13 +1591,14 @@
           resultDiv.innerText = `لم يتم العثور على عمودين باسم X و Y. الأعمدة الحالية في الملف: ${existing}`;
           return;
         }
-        let output = `الإحداثيات المحوّلة (عمود A = Latitude، عمود B = Longitude) — ${zoneLabel}:\n\n`;
-        const convertedRows = [];
 
-        let domainErrorType = null;
+        const warnings = new Set();
+        const convertedRows = [];
+        let textOutput = 'الإحداثيات المحوّلة (عمود A = Latitude، عمود B = Longitude):\n\n';
+        let domainError = null;
 
         data.forEach((row, index) => {
-          if(domainErrorType) {
+          if(domainError) {
             return;
           }
           const xVal = getCsvField(row, 'X');
@@ -1541,21 +1608,38 @@
           const y = parseFloat(yVal);
           if(isNaN(x) || isNaN(y)) return;
 
-          const [lon, lat] = proj4(zoneConfig.proj, wgs84, [x, y]);
-          const domainResult = validateWgs84Point(lon, lat);
-          if(!domainResult.isValid) {
-            domainErrorType = domainResult.errorType;
+          const conversion = convertPlanarToWgs84Auto(x, y);
+          if(conversion.status !== 'ok') {
+            domainError = {
+              type: conversion.errorType || 'zones',
+              message: getDomainErrorMessage(conversion.errorType || 'zones')
+            };
             return;
           }
+
+          const { lon, lat, inferredZoneKey } = conversion;
+          const zoneResolution = resolveZoneAlignment(inferredZoneKey, { requireConfirmation: Boolean(selectedCityName) });
+          if(!zoneResolution.proceed) {
+            domainError = {
+              type: 'user-abort',
+              message: zoneResolution.warning || 'تم إيقاف التحويل بناءً على اختيار المستخدم.'
+            };
+            return;
+          }
+          if(zoneResolution.warning) {
+            warnings.add(zoneResolution.warning);
+          }
+
           const latDms = decimalToDMS(lat, true);
           const lonDms = decimalToDMS(lon, false);
-          output += `Ligne ${index+1} : Latitude ${formatDMS(latDms)}, Longitude ${formatDMS(lonDms)}\n`;
-          convertedRows.push({ Latitude: formatDMS(latDms), Longitude: formatDMS(lonDms) });
+          const latText = formatDMS(latDms);
+          const lonText = formatDMS(lonDms);
+          convertedRows.push({ Latitude: latText, Longitude: lonText });
+          textOutput += `Ligne ${index + 1} : Latitude ${latText}, Longitude ${lonText}\n`;
         });
 
-        if(domainErrorType) {
-          const message = getDomainErrorMessage(domainErrorType);
-          resultDiv.innerText = message;
+        if(domainError) {
+          resultDiv.innerText = domainError.message;
           lastConvertedRows = [];
           lastConvertedFields = null;
           lastConversionType = null;
@@ -1569,7 +1653,11 @@
           return;
         }
 
-        resultDiv.innerText = output;
+        const warningText = warnings.size
+          ? Array.from(warnings).map((text) => `تحذير: ${text}`).join('\n') + '\n\n'
+          : '';
+        resultDiv.innerText = `${warningText}${textOutput}`;
+
         lastConvertedRows = convertedRows;
         lastConvertedFields = ['Latitude', 'Longitude'];
         lastConversionType = type;
@@ -1578,29 +1666,13 @@
     });
   }
 
+
   function convertSingle() {
     const type = document.getElementById('conversionType').value;
     const resultDiv = document.getElementById('singleResult');
-    const searchInput = document.getElementById('citySearchInput');
-    if(!selectedCityName) {
-      resultDiv.innerText = 'الرجاء اختيار مدينة عبر مربع البحث قبل إجراء التحويل.';
-      setSingleResultCopyAvailability();
-      if(searchInput) {
-        searchInput.focus();
-      }
-      return;
-    }
-    const zoneConfig = getCurrentZoneConfig();
+    const warnings = [];
 
-    if(!zoneConfig) {
-      resultDiv.innerText = 'لا يوجد نظام إسقاط صالح متاح. الرجاء اختيار مدينة مرتبطة بمنطقة معتمدة.';
-      setSingleResultCopyAvailability();
-      return;
-    }
-
-    const zoneLabel = getZoneDisplayLabel(currentZoneKey) || 'Zone I';
-
-    if(type === "latlong-to-Merchich") {
+    if(type === 'latlong-to-Merchich') {
       const geoValidation = validateGeographicInputs();
       if(geoValidation.status === 'incomplete') {
         resultDiv.innerText = 'الرجاء إدخال قيم كاملة للخطوط قبل التحويل.';
@@ -1608,18 +1680,12 @@
         return;
       }
       if(geoValidation.status === 'invalid-input') {
-        resultDiv.innerText = "Veuillez saisir des degrés, minutes et secondes valides pour la latitude et la longitude.";
+        resultDiv.innerText = "Veuillez saisir des degrés، minutes et secondes valides pour la latitude et la longitude.";
         setSingleResultCopyAvailability();
         return;
       }
       if(geoValidation.status !== 'validated') {
-        resultDiv.innerText = 'لا يمكن التحقق من المدخلات الحالية. تأكد من اختيار مدينة مرتبطة بمنطقة معتمدة.';
-        setSingleResultCopyAvailability();
-        return;
-      }
-      if(!geoValidation.isValid) {
-        const message = getDomainErrorMessage(geoValidation.errorType);
-        resultDiv.innerText = message;
+        resultDiv.innerText = 'لا يمكن التحقق من المدخلات الحالية. تحقق من القيم المدخلة ثم أعد المحاولة.';
         setSingleResultCopyAvailability();
         return;
       }
@@ -1627,45 +1693,96 @@
       const latitude = geoValidation.latValue;
       const longitude = geoValidation.lonValue;
 
+      if(!isPointInsideMorocco(longitude, latitude)) {
+        setInputsValidity(GEO_COORD_INPUT_IDS, { isValid: false, message: MOROCCO_DOMAIN_ERROR_TEXT });
+        resultDiv.innerText = MOROCCO_DOMAIN_ERROR_TEXT;
+        setSingleResultCopyAvailability();
+        return;
+      }
+
+      const inferredZoneKey = getZoneKeyForLatitude(latitude);
+      if(!inferredZoneKey) {
+        setInputsValidity(GEO_COORD_INPUT_IDS, { isValid: false, message: ZONE_RANGE_ERROR_TEXT });
+        resultDiv.innerText = ZONE_RANGE_ERROR_TEXT;
+        setSingleResultCopyAvailability();
+        return;
+      }
+
+      const zoneResolution = resolveZoneAlignment(inferredZoneKey, { requireConfirmation: Boolean(selectedCityName) });
+      if(!zoneResolution.proceed) {
+        resultDiv.innerText = zoneResolution.warning || 'تم إلغاء العملية بناءً على اختيار المستخدم.';
+        setSingleResultCopyAvailability();
+        return;
+      }
+      if(zoneResolution.warning) {
+        warnings.push(zoneResolution.warning);
+      }
+
+      const zoneConfig = merchichZones[zoneResolution.zoneKey];
+      if(!zoneConfig) {
+        resultDiv.innerText = 'لا يوجد نظام إسقاط صالح متاح لهذه النقطة.';
+        setSingleResultCopyAvailability();
+        return;
+      }
+
       setInputsValidity(GEO_COORD_INPUT_IDS, { reset: true });
 
       const [xMerchich, yMerchich] = proj4(wgs84, zoneConfig.proj, [longitude, latitude]);
       const xInt = Math.round(xMerchich);
       const yInt = Math.round(yMerchich);
-      resultDiv.innerText = `X = ${xInt}\nY = ${yInt}\nZone: ${zoneLabel}`;
-      setSingleResultCopyAvailability();
       const latDmsText = formatDMS(decimalToDMS(latitude, true));
       const lonDmsText = formatDMS(decimalToDMS(longitude, false));
-      updateConversionMarker(latitude, longitude, `الموقع الأصلي<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
-    } else {
-      const xInput = parseFloat(document.getElementById('manualX').value);
-      const yInput = parseFloat(document.getElementById('manualY').value);
-
-      if(isNaN(xInput) || isNaN(yInput)) {
-        resultDiv.innerText = "Veuillez saisir des valeurs numériques valides pour X et Y.";
-        setSingleResultCopyAvailability();
-        return;
+      let output = `X = ${xInt}\nY = ${yInt}\nZone: ${getZoneDisplayLabel(zoneResolution.zoneKey) || zoneResolution.zoneKey}`;
+      if(warnings.length) {
+        output = `${warnings.join('\n')}\n\n${output}`;
       }
-
-      const [lon, lat] = proj4(zoneConfig.proj, wgs84, [xInput, yInput]);
-      const domainResult = validateWgs84Point(lon, lat);
-      if(!domainResult.isValid) {
-        const message = getDomainErrorMessage(domainResult.errorType);
-        resultDiv.innerText = message;
-        setInputsValidity(CARTESIAN_INPUT_IDS, { isValid: false, message });
-        setSingleResultCopyAvailability();
-        return;
-      }
-
-      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
-      const latDms = decimalToDMS(lat, true);
-      const lonDms = decimalToDMS(lon, false);
-      const latDmsText = formatDMS(latDms);
-      const lonDmsText = formatDMS(lonDms);
-      resultDiv.innerText = `Latitude : ${latDmsText}\nLongitude : ${lonDmsText}\nZone: ${zoneLabel}`;
+      resultDiv.innerText = output;
       setSingleResultCopyAvailability();
-      updateConversionMarker(lat, lon, `النقطة المحوّلة إلى Lat/Long<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
+      updateConversionMarker(latitude, longitude, `الموقع الأصلي<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
+      return;
     }
+
+    const xInput = parseFloat(document.getElementById('manualX').value);
+    const yInput = parseFloat(document.getElementById('manualY').value);
+
+    if(isNaN(xInput) || isNaN(yInput)) {
+      resultDiv.innerText = "Veuillez saisir des valeurs numériques valides pour X و Y.";
+      setSingleResultCopyAvailability();
+      return;
+    }
+
+    const planarConversion = convertPlanarToWgs84Auto(xInput, yInput);
+    if(planarConversion.status !== 'ok') {
+      const message = getDomainErrorMessage(planarConversion.errorType || 'zones');
+      setInputsValidity(CARTESIAN_INPUT_IDS, { isValid: false, message });
+      resultDiv.innerText = message;
+      setSingleResultCopyAvailability();
+      return;
+    }
+
+    const { lon, lat, inferredZoneKey } = planarConversion;
+    const zoneResolution = resolveZoneAlignment(inferredZoneKey, { requireConfirmation: Boolean(selectedCityName) });
+    if(!zoneResolution.proceed) {
+      resultDiv.innerText = zoneResolution.warning || 'تم إلغاء العملية بناءً على اختيار المستخدم.';
+      setSingleResultCopyAvailability();
+      return;
+    }
+    if(zoneResolution.warning) {
+      warnings.push(zoneResolution.warning);
+    }
+
+    setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
+    const latDms = decimalToDMS(lat, true);
+    const lonDms = decimalToDMS(lon, false);
+    const latDmsText = formatDMS(latDms);
+    const lonDmsText = formatDMS(lonDms);
+    let output = `Latitude : ${latDmsText}\nLongitude : ${lonDmsText}`;
+    if(warnings.length) {
+      output = `${warnings.join('\n')}\n\n${output}`;
+    }
+    resultDiv.innerText = output;
+    setSingleResultCopyAvailability();
+    updateConversionMarker(lat, lon, `النقطة المحوّلة إلى Lat/Long<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
   }
 
   function downloadConvertedFile() {
