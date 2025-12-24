@@ -75,8 +75,8 @@
         </div>
       </div>
       <div class="manual-fields" id="cartesianFields">
-        <input type="number" id="manualX" placeholder="X">
-        <input type="number" id="manualY" placeholder="Y">
+        <input type="text" id="manualX" placeholder="X" inputmode="decimal">
+        <input type="text" id="manualY" placeholder="Y" inputmode="decimal">
       </div>
       <button class="manual-btn" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
       <div class="result single-result" id="singleResult"></div>
@@ -170,6 +170,8 @@
   let cityOptionsCache = [];
   let selectedCityName = '';
   const CITY_SUGGESTION_LIMIT = 20;
+  const CITY_ALLOWED_CHAR_REGEX = /^[A-Za-z ]$/;
+  const CITY_ALLOWED_TEXT_REGEX = /^[A-Za-z ]+$/;
   let citySuggestionsHideTimeoutId = null;
 
   function initMap() {
@@ -486,19 +488,75 @@
     return seconds < 10 ? `0${str}` : str;
   }
 
+  function enforceNumericCharacters(input, options = {}) {
+    if(!input) {
+      return '';
+    }
+    const {
+      allowDecimal = false,
+      allowNegative = false,
+      maxLength = null,
+      decimalSeparatorReplacement = null
+    } = options;
+    const rawValue = input.value || '';
+    let sanitized = '';
+    let decimalUsed = false;
+    let decimalChar = null;
+
+    for(let index = 0; index < rawValue.length; index++) {
+      const char = rawValue[index];
+      if(char >= '0' && char <= '9') {
+        sanitized += char;
+        continue;
+      }
+      if(allowDecimal && (char === '.' || char === ',')) {
+        if(decimalUsed) {
+          continue;
+        }
+        sanitized += char;
+        decimalUsed = true;
+        decimalChar = char;
+        continue;
+      }
+      if(allowNegative && char === '-' && sanitized.length === 0) {
+        sanitized = '-';
+      }
+    }
+
+    if(!allowNegative) {
+      sanitized = sanitized.replace(/-/g, '');
+    } else if(sanitized.indexOf('-') > 0) {
+      sanitized = sanitized.replace(/-/g, '');
+      sanitized = `-${sanitized}`;
+    }
+
+    if(typeof maxLength === 'number' && maxLength > 0 && !allowDecimal) {
+      const isNegative = allowNegative && sanitized.startsWith('-');
+      const limit = maxLength + (isNegative ? 1 : 0);
+      sanitized = sanitized.slice(0, limit);
+    }
+
+    if(!allowDecimal) {
+      sanitized = sanitized.replace(/[.,]/g, '');
+    } else if(decimalSeparatorReplacement && decimalChar && decimalChar !== decimalSeparatorReplacement) {
+      const decimalIndex = sanitized.indexOf(decimalChar);
+      if(decimalIndex !== -1) {
+        sanitized = sanitized.slice(0, decimalIndex) + decimalSeparatorReplacement + sanitized.slice(decimalIndex + 1);
+      }
+    }
+
+    if(input.value !== sanitized) {
+      input.value = sanitized;
+    }
+    return sanitized;
+  }
+
   function enforceTwoDigits(input) {
-    input.value = input.value.replace(/[^0-9]/g, '').slice(0, 2);
+    enforceNumericCharacters(input, { maxLength: 2 });
   }
 
   function sanitizeSeconds(input) {
-    let value = input.value.replace(/[^0-9.,]/g, '');
-    const decimalIndex = value.search(/[.,]/);
-    if(decimalIndex !== -1) {
-      const before = value.slice(0, decimalIndex + 1);
-      const after = value.slice(decimalIndex + 1).replace(/[.,]/g, '');
-      value = before + after;
-    }
-    input.value = value;
+    enforceNumericCharacters(input, { allowDecimal: true });
   }
 
   function finalizeSeconds(input) {
@@ -673,6 +731,21 @@
     }
   }
 
+  function initManualNumericFields() {
+    const manualNumericInputs = [
+      { id: 'manualX', options: { allowDecimal: true, decimalSeparatorReplacement: '.' } },
+      { id: 'manualY', options: { allowDecimal: true, decimalSeparatorReplacement: '.' } }
+    ];
+
+    manualNumericInputs.forEach(({ id, options }) => {
+      const element = document.getElementById(id);
+      if(!element) {
+        return;
+      }
+      element.addEventListener('input', () => enforceNumericCharacters(element, options));
+    });
+  }
+
 
   function flattenCityZones(cityData) {
     const flattened = {};
@@ -775,6 +848,52 @@
     }
   }
 
+  // Restrict city search input to alphabetic characters and spaces
+  function sanitizeCitySearchValueWithCaret(value, caretPosition) {
+    if(typeof value !== 'string') {
+      return { sanitizedValue: '', nextCaret: 0 };
+    }
+    let sanitizedValue = '';
+    let nextCaret = typeof caretPosition === 'number' ? caretPosition : value.length;
+    for(let index = 0; index < value.length; index++) {
+      const char = value[index];
+      if(CITY_ALLOWED_CHAR_REGEX.test(char)) {
+        sanitizedValue += char;
+      } else if(index < nextCaret) {
+        nextCaret--;
+      }
+    }
+    nextCaret = Math.max(0, Math.min(nextCaret, sanitizedValue.length));
+    return { sanitizedValue, nextCaret };
+  }
+
+  function enforceCitySearchAlphaOnly(inputElement) {
+    if(!inputElement) {
+      return '';
+    }
+    const rawValue = inputElement.value || '';
+    const caretPosition = typeof inputElement.selectionStart === 'number'
+      ? inputElement.selectionStart
+      : rawValue.length;
+    const { sanitizedValue, nextCaret } = sanitizeCitySearchValueWithCaret(rawValue, caretPosition);
+    if(rawValue !== sanitizedValue) {
+      inputElement.value = sanitizedValue;
+      if(typeof inputElement.setSelectionRange === 'function') {
+        inputElement.setSelectionRange(nextCaret, nextCaret);
+      }
+    }
+    return inputElement.value;
+  }
+
+  function handleCitySearchBeforeInput(event) {
+    if(!event || typeof event.data !== 'string') {
+      return;
+    }
+    if(event.data && !CITY_ALLOWED_TEXT_REGEX.test(event.data)) {
+      event.preventDefault();
+    }
+  }
+
   function renderCitySuggestions(filterText = '', forceOpen = false) {
     if(!cityOptionsCache.length) {
       hideCitySuggestionsList();
@@ -870,7 +989,10 @@
   }
 
   function handleCitySearchInput(event) {
-    const value = event && event.target ? event.target.value : '';
+    if(!event || !event.target) {
+      return;
+    }
+    const value = enforceCitySearchAlphaOnly(event.target);
     cancelCitySuggestionsHide();
     renderCitySuggestions(value, true);
     const match = findCityMatchByInput(value);
@@ -1241,6 +1363,7 @@
 
   const citySearchInputElement = document.getElementById('citySearchInput');
   if(citySearchInputElement) {
+    citySearchInputElement.addEventListener('beforeinput', handleCitySearchBeforeInput);
     citySearchInputElement.addEventListener('input', handleCitySearchInput);
     citySearchInputElement.addEventListener('focus', handleCitySearchFocus);
     citySearchInputElement.addEventListener('keydown', handleCitySearchKeyDown);
@@ -1254,6 +1377,7 @@
   document.getElementById('conversionType').addEventListener('change', updateFileHint);
   document.getElementById('csvFile').addEventListener('change', handleCsvFileChange);
   window.addEventListener('beforeunload', stopGeoWatch);
+  initManualNumericFields();
   initMap();
   initCityPicker();
   updateFileHint();
