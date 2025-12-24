@@ -163,8 +163,8 @@ button:hover { background: #199a64; }
   align-items: center;
   justify-content: center;
   background: var(--text-strong);
-  background-color: rgb(74, 46, 150);
-  box-shadow: 0 12px 24px rgba(62, 90, 230, 0.895);
+  background-color: rgb(53, 174, 166);
+  box-shadow: 0 12px 24px rgba(43, 151, 149, 0.895);
 }
 
 .reload-btn:hover { background: #17233a; }

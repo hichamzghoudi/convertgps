@@ -22,17 +22,18 @@
 <div class="container">
   <h3 class="my-3">محول إحداثيات X/Y و Lat/Long (D°M'S'')</h3>
 
-  <div class="conversion-header">    
+  <div class="conversion-header"> 
+      <label class="my-2 conversion-label" for="conversionType">اختر المدينة (اجباري)</label>
       <div class="city-select-block">
-        <select id="citySelect" class="city-select" aria-label="اختر المدينة (اجباري)">
+        <select id="citySelect" class="city-select bg-secondary bg-opacity-25 rounded" aria-label="ville">
           <option value="">جارٍ تحميل المدن...</option>
         </select>
         <input id="citySelectKeyboardProxy" class="city-select-keyboard-proxy" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" aria-hidden="true" tabindex="-1">
-        <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
       </div>
+      <span class="city-zone-badge" id="cityZoneBadge" hidden aria-live="polite"></span>
       <label class="my-2 conversion-label" for="conversionType">اختر نوع التحويل:</label>
       <div>
-        <select id="conversionType" class="form-select form-select-lg mb-3" aria-label="اختر نوع التحويل">
+        <select id="conversionType" class="form-select form-select-sm mb-3 bg-secondary bg-opacity-25 rounded" aria-label="اختر نوع التحويل">
           <option value="Merchich-to-latlong">Fm: X/Y --To→ Lat/Long (D°M'S'')</option>
           <option value="latlong-to-Merchich">Fm: Lat/Long (D°M'S'') --To→ X/Y</option>
         </select>
@@ -80,6 +81,7 @@
       </div>
       <button class="manual-btn" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
       <div class="result single-result" id="singleResult"></div>
+      <button type="button" id="copySingleResultBtn" class="copy-btn" onclick="copySingleResult()" disabled>نسخ النتيجة</button>
     </div>
 
     <div class="map-box">
@@ -732,7 +734,7 @@
     citySelect.innerHTML = '';
     const placeholderOption = document.createElement('option');
     placeholderOption.value = '';
-    placeholderOption.textContent = 'اختر المدينة (اجباري)';
+    placeholderOption.textContent = 'ville';
     citySelect.appendChild(placeholderOption);
     const flattened = flattenCityZones(cityData);
     const entries = Object.entries(flattened);
@@ -907,19 +909,62 @@
     }
     if(event.pointerType === 'touch' || event.pointerType === 'pen') {
       prefersCityKeyboardProxy = true;
-      event.preventDefault();
-      requestCityKeyboardProxyFocus();
+      clearCityKeyboardBuffer();
     }
   }
 
   function handleCitySelectTouchStartFallback(event) {
     prefersCityKeyboardProxy = true;
-    event.preventDefault();
-    requestCityKeyboardProxyFocus();
+    clearCityKeyboardBuffer();
   }
 
   function handleReload() {
     window.location.reload();
+  }
+
+  function setSingleResultCopyAvailability() {
+    const resultDiv = document.getElementById('singleResult');
+    const copyBtn = document.getElementById('copySingleResultBtn');
+    if(!copyBtn || !resultDiv) {
+      return;
+    }
+    copyBtn.disabled = resultDiv.innerText.trim().length === 0;
+  }
+
+  function fallbackCopyToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (error) {
+      copied = false;
+    }
+    document.body.removeChild(textarea);
+    if(!copied) {
+      alert('تعذر نسخ النتيجة تلقائيًا. الرجاء النسخ يدويًا.');
+    }
+  }
+
+  function copySingleResult() {
+    const resultDiv = document.getElementById('singleResult');
+    if(!resultDiv) {
+      return;
+    }
+    const text = resultDiv.innerText.trim();
+    if(!text) {
+      return;
+    }
+    if(navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).catch(() => fallbackCopyToClipboard(text));
+    } else {
+      fallbackCopyToClipboard(text);
+    }
   }
 
   function convertCSV() {
@@ -1011,6 +1056,7 @@
     const citySelect = document.getElementById('citySelect');
     if(citySelect && !citySelect.value) {
       resultDiv.innerText = 'الرجاء اختيار مدينة من القائمة قبل إجراء التحويل.';
+      setSingleResultCopyAvailability();
       citySelect.focus();
       return;
     }
@@ -1018,6 +1064,7 @@
 
     if(!zoneConfig) {
       resultDiv.innerText = 'لا يوجد نظام إسقاط صالح متاح. الرجاء اختيار مدينة مرتبطة بمنطقة معتمدة.';
+      setSingleResultCopyAvailability();
       return;
     }
 
@@ -1038,6 +1085,7 @@
 
       if(isNaN(latitude) || isNaN(longitude)) {
         resultDiv.innerText = "Veuillez saisir des degrés, minutes et secondes valides pour la latitude et la longitude.";
+        setSingleResultCopyAvailability();
         return;
       }
 
@@ -1045,6 +1093,7 @@
       const xInt = Math.round(xMerchich);
       const yInt = Math.round(yMerchich);
       resultDiv.innerText = `X = ${xInt}\nY = ${yInt}\nZone: ${zoneLabel}`;
+      setSingleResultCopyAvailability();
       const latDmsText = formatDMS(decimalToDMS(latitude, true));
       const lonDmsText = formatDMS(decimalToDMS(longitude, false));
       updateConversionMarker(latitude, longitude, `الموقع الأصلي<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
@@ -1054,6 +1103,7 @@
 
       if(isNaN(xInput) || isNaN(yInput)) {
         resultDiv.innerText = "Veuillez saisir des valeurs numériques valides pour X et Y.";
+        setSingleResultCopyAvailability();
         return;
       }
 
@@ -1063,6 +1113,7 @@
       const latDmsText = formatDMS(latDms);
       const lonDmsText = formatDMS(lonDms);
       resultDiv.innerText = `Latitude : ${latDmsText}\nLongitude : ${lonDmsText}\nZone: ${zoneLabel}`;
+      setSingleResultCopyAvailability();
       updateConversionMarker(lat, lon, `النقطة المحوّلة إلى Lat/Long<br>${wrapDmsHtml(latDmsText, lonDmsText)}`);
     }
   }
@@ -1115,6 +1166,7 @@
   initCityPicker();
   updateFileHint();
   updateConvertButtonState();
+  setSingleResultCopyAvailability();
 </script>
 
 </body>
