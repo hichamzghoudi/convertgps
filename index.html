@@ -114,20 +114,60 @@
   const wgs84 = proj4.WGS84;
   const merchichZones = {
     Zone_I: {
-      label: '',
-      proj: '+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+      label: 'Zone I (Nord Maroc)',
+      proj: '+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs',
+      constraints: {
+        latMin: 31.7278666667,
+        latMax: 34.8717277778,
+        lonMin: -9.8000,
+        lonMax: -1.8000,
+        xMin: 200000,
+        xMax: 900000,
+        yMin: 150000,
+        yMax: 650000
+      }
     },
     Zone_II: {
-      label: '',
-      proj: '+proj=lcc +lat_1=29.7 +lat_0=29.7 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+      label: 'Zone II (Agadir)',
+      proj: '+proj=lcc +lat_1=29.7 +lat_0=29.7 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs',
+      constraints: {
+        latMin: 28.1063305556,
+        latMax: 31.2932777778,
+        lonMin: -10.9000,
+        lonMax: -5.4000,
+        xMin: 180000,
+        xMax: 850000,
+        yMin: 120000,
+        yMax: 620000
+      }
     },
     Zone_III: {
-      label: '',
-      proj: '+proj=lcc +lat_1=26.1 +lat_0=26.1 +lon_0=-5.4 +k_0=0.999625769 +x_0=1200000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+      label: 'Zone III (La\'youn)',
+      proj: '+proj=lcc +lat_1=26.1 +lat_0=26.1 +lon_0=-5.4 +k_0=0.999625769 +x_0=1200000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs',
+      constraints: {
+        latMin: 24.5075333333,
+        latMax: 27.6921083333,
+        lonMin: -13.2000,
+        lonMax: -6.8000,
+        xMin: 900000,
+        xMax: 1600000,
+        yMin: 150000,
+        yMax: 700000
+      }
     },
     Zone_IV: {
-      label: '',
-      proj: '+proj=lcc +lat_1=22.5 +lat_0=22.5 +lon_0=-5.4 +k_0=0.999625769 +x_0=1500000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs'
+      label: 'Zone IV (Ad-Dakhla)',
+      proj: '+proj=lcc +lat_1=22.5 +lat_0=22.5 +lon_0=-5.4 +k_0=0.999625769 +x_0=1500000 +y_0=400000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs',
+      constraints: {
+        latMin: 20.9075750000,
+        latMax: 24.0921055556,
+        lonMin: -15.5000,
+        lonMax: -8.8000,
+        xMin: 1200000,
+        xMax: 1900000,
+        yMin: 200000,
+        yMax: 800000
+      }
     }
   };
   const defaultZoneKey = 'Zone_I';
@@ -172,6 +212,9 @@
   const CITY_SUGGESTION_LIMIT = 20;
   const CITY_ALLOWED_CHAR_REGEX = /^[A-Za-z ]$/;
   const CITY_ALLOWED_TEXT_REGEX = /^[A-Za-z ]+$/;
+  const LAT_INPUT_IDS = ['latDeg', 'latMin', 'latSec'];
+  const LON_INPUT_IDS = ['lonDeg', 'lonMin', 'lonSec'];
+  const CARTESIAN_INPUT_IDS = ['manualX', 'manualY'];
   let citySuggestionsHideTimeoutId = null;
 
   function initMap() {
@@ -433,7 +476,7 @@
         hint.dataset.defaultMessage = activeMsg;
         hint.innerText = activeMsg;
       }
-      manualHint.innerText = "أدخل إحداثيات (X, Y) يدويًا ليتم تحويلها مباشرة إلى Lat/Long باستخدام المنطقة المناسبة.";
+      manualHint.innerText = " اختر المدينة ثم أدخل إحداثيات (X, Y) يدويًا ليتم تحويلها مباشرة إلى Lat/Long باستخدام المنطقة المناسبة.";
       if(batchSection) batchSection.style.display = 'block';
       if(csvImage) {
         csvImage.src = 'modelcsvxy.JPG';
@@ -593,6 +636,135 @@
     return Math.floor(clamped * 100) / 100;
   }
 
+  function areInputsFilled(inputIds) {
+    return inputIds.every((id) => {
+      const element = document.getElementById(id);
+      return element && element.value.trim() !== '';
+    });
+  }
+
+  function setInputsValidity(inputIds, { reset = false, isValid = true, message = '' } = {}) {
+    inputIds.forEach((id) => {
+      const element = document.getElementById(id);
+      if(!element) {
+        return;
+      }
+      if(reset) {
+        element.classList.remove('is-invalid');
+        element.removeAttribute('aria-invalid');
+        element.removeAttribute('title');
+        return;
+      }
+      if(isValid) {
+        element.classList.remove('is-invalid');
+        element.removeAttribute('aria-invalid');
+        element.removeAttribute('title');
+        return;
+      }
+      element.classList.add('is-invalid');
+      element.setAttribute('aria-invalid', 'true');
+      if(message) {
+        element.setAttribute('title', message);
+      } else {
+        element.removeAttribute('title');
+      }
+    });
+  }
+
+  function getActiveConstraints() {
+    const zoneConfig = getCurrentZoneConfig();
+    if(zoneConfig && zoneConfig.constraints) {
+      return zoneConfig.constraints;
+    }
+    return null;
+  }
+
+  function formatRangeMessage(label, min, max, unit = '') {
+    const minText = min.toFixed(5);
+    const maxText = max.toFixed(5);
+    const suffix = unit ? ` ${unit}` : '';
+    return `${label}: المدى المسموح ${minText}${suffix} → ${maxText}${suffix}`;
+  }
+
+  function getDmsDecimal(prefix) {
+    const deg = parseFloat(document.getElementById(`${prefix}Deg`).value);
+    const min = parseFloat(document.getElementById(`${prefix}Min`).value);
+    const sec = readSecondsValue(`${prefix}Sec`);
+    const hemisphereElement = document.getElementById(`${prefix}Hemisphere`);
+    const hemisphere = hemisphereElement ? hemisphereElement.value : (prefix === 'lat' ? 'N' : 'E');
+    return dmsToDecimal(deg, min, sec, hemisphere);
+  }
+
+  function validateGeographicGroup(groupKey) {
+    const conversionType = document.getElementById('conversionType').value;
+    const constraints = getActiveConstraints();
+    const isLatGroup = groupKey === 'lat';
+    const inputIds = isLatGroup ? LAT_INPUT_IDS : LON_INPUT_IDS;
+    if(conversionType !== 'latlong-to-Merchich' || !selectedCityName || !constraints) {
+      setInputsValidity(inputIds, { reset: true });
+      return { status: 'skipped' };
+    }
+
+    if(!areInputsFilled(inputIds)) {
+      setInputsValidity(inputIds, { reset: true });
+      return { status: 'incomplete' };
+    }
+
+    const decimalValue = getDmsDecimal(isLatGroup ? 'lat' : 'lon');
+    if(!Number.isFinite(decimalValue)) {
+      setInputsValidity(inputIds, { reset: true });
+      return { status: 'invalid-input' };
+    }
+
+    const min = isLatGroup ? constraints.latMin : constraints.lonMin;
+    const max = isLatGroup ? constraints.latMax : constraints.lonMax;
+    const withinRange = decimalValue >= min && decimalValue <= max;
+    const label = isLatGroup ? 'خط العرض' : 'خط الطول';
+    const message = withinRange ? '' : formatRangeMessage(label, min, max, '°');
+    setInputsValidity(inputIds, { isValid: withinRange, message });
+    return { status: 'validated', isValid: withinRange, value: decimalValue };
+  }
+
+  function validatePlanarField(fieldId, min, max, label) {
+    const element = document.getElementById(fieldId);
+    if(!element) {
+      return { status: 'missing' };
+    }
+    const raw = element.value.trim();
+    if(raw === '') {
+      setInputsValidity([fieldId], { reset: true });
+      return { status: 'empty' };
+    }
+    const numericValue = parseFloat(raw);
+    if(!Number.isFinite(numericValue)) {
+      setInputsValidity([fieldId], { reset: true });
+      return { status: 'invalid-input' };
+    }
+    const withinRange = numericValue >= min && numericValue <= max;
+    const message = withinRange ? '' : formatRangeMessage(label, min, max, 'm');
+    setInputsValidity([fieldId], { isValid: withinRange, message });
+    return { status: 'validated', isValid: withinRange, value: numericValue };
+  }
+
+  function validatePlanarInputs() {
+    const conversionType = document.getElementById('conversionType').value;
+    const constraints = getActiveConstraints();
+    if(conversionType !== 'Merchich-to-latlong' || !selectedCityName || !constraints) {
+      setInputsValidity(CARTESIAN_INPUT_IDS, { reset: true });
+      return { status: 'skipped' };
+    }
+    const xResult = validatePlanarField('manualX', constraints.xMin, constraints.xMax, 'إحداثي X');
+    const yResult = validatePlanarField('manualY', constraints.yMin, constraints.yMax, 'إحداثي Y');
+    const isValid = xResult.isValid !== false && yResult.isValid !== false;
+    return { status: 'validated', isValid, xResult, yResult };
+  }
+
+  function validateAllCoordinateGroups() {
+    validateGeographicGroup('lat');
+    validateGeographicGroup('lon');
+    validatePlanarInputs();
+  }
+
   function formatDMS(dms) {
     if(!dms) return '';
     const degreeWidth = dms.isLatitude ? 2 : 3;
@@ -742,8 +914,36 @@
       if(!element) {
         return;
       }
-      element.addEventListener('input', () => enforceNumericCharacters(element, options));
+      const handler = () => {
+        enforceNumericCharacters(element, options);
+        validatePlanarInputs();
+      };
+      element.addEventListener('input', handler);
+      element.addEventListener('blur', handler);
     });
+  }
+
+  function initDmsValidationListeners() {
+    const registerGroup = (ids, callback) => {
+      ids.forEach((id) => {
+        const element = document.getElementById(id);
+        if(!element) {
+          return;
+        }
+        element.addEventListener('input', callback);
+        element.addEventListener('blur', callback);
+      });
+    };
+    registerGroup(LAT_INPUT_IDS, () => validateGeographicGroup('lat'));
+    registerGroup(LON_INPUT_IDS, () => validateGeographicGroup('lon'));
+    const latHem = document.getElementById('latHemisphere');
+    if(latHem) {
+      latHem.addEventListener('change', () => validateGeographicGroup('lat'));
+    }
+    const lonHem = document.getElementById('lonHemisphere');
+    if(lonHem) {
+      lonHem.addEventListener('change', () => validateGeographicGroup('lon'));
+    }
   }
 
 
@@ -804,6 +1004,7 @@
     selectedCityName = '';
     setActiveZone('');
     updateCityZoneBadge('');
+    validateAllCoordinateGroups();
   }
 
   function commitCitySelection(entry) {
@@ -827,6 +1028,7 @@
       }
     }
     hideCitySuggestionsList();
+    validateAllCoordinateGroups();
   }
 
   function updateCitySearchInputUI({ disabled = false, placeholderText } = {}) {
@@ -1374,14 +1576,25 @@
     citySuggestionsListElement.addEventListener('click', handleCitySuggestionClick);
   }
   document.addEventListener('click', handleOutsideCitySuggestionClick);
-  document.getElementById('conversionType').addEventListener('change', updateFileHint);
-  document.getElementById('csvFile').addEventListener('change', handleCsvFileChange);
+  const conversionTypeElement = document.getElementById('conversionType');
+  if(conversionTypeElement) {
+    conversionTypeElement.addEventListener('change', () => {
+      updateFileHint();
+      validateAllCoordinateGroups();
+    });
+  }
+  const csvInputElement = document.getElementById('csvFile');
+  if(csvInputElement) {
+    csvInputElement.addEventListener('change', handleCsvFileChange);
+  }
   window.addEventListener('beforeunload', stopGeoWatch);
+  initDmsValidationListeners();
   initManualNumericFields();
   initMap();
   initCityPicker();
   updateFileHint();
   updateConvertButtonState();
+  validateAllCoordinateGroups();
   setSingleResultCopyAvailability();
 </script>
 
