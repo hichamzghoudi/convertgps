@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ConvertGPS</string>
+    <string name="title_activity_main">ConvertGPS</string>
+    <string name="package_name">com.hicham.convertgps</string>
+    <string name="custom_url_scheme">com.hicham.convertgps</string>
+</resources>
