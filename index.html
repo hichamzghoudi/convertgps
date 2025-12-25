@@ -88,8 +88,8 @@
         <input type="text" id="manualY" placeholder="Y">
       </div>
 
-      <button class="manual-btn" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
-      <button type="button" id="copySingleResultBtn" class="btntout mt-2" onclick="copySingleResult()" disabled>نسخ النتيجة</button>
+      <button class="manual-btn rounded" onclick="convertSingle()">تحويل الإحداثيات المدخلة</button>
+      <button type="button" id="copySingleResultBtn" class="btntout mt-2 rounded" onclick="copySingleResult()" disabled>نسخ النتيجة</button>
       <div class="result single-result" id="singleResult"></div>
     </div>
 
@@ -111,10 +111,10 @@
     <input type="file" id="csvFile" accept=".csv">
     <p class="hint" id="fileHint"></p>
     <img src="modelcsvxy.JPG" alt="نموذج ملف CSV" id="csvModelImage" class="csv-image">
-    <button id="convertBtn" class="btntout" onclick="convertCSV()" disabled>تحويل جميع الإحداثيات</button>
+    <button id="convertBtn" class="btntout rounded" onclick="convertCSV()" disabled>تحويل جميع الإحداثيات</button>
     <p class="hint" id="layoutHint">بعد التحويل، ضع قيمة Latitude في العمود A وقيمة Longitude في العمود B داخل ملف Excel قبل أي معالجة إضافية.</p>
     <div class="result" id="result"></div>
-    <button id="downloadBtn" class="download-btn" onclick="downloadConvertedFile()" disabled>تحميل الملف المحوّل</button>
+    <button id="downloadBtn" class="download-btn rounded" onclick="downloadConvertedFile()" disabled>تحميل الملف المحوّل</button>
   </div>
 </div>
 
@@ -388,8 +388,8 @@
     if(!conversionMarker) {
       conversionMarker = L.circleMarker(target, {
         radius: 10,
-        color: '#d61f46',
-        fillColor: '#d61f46',
+        color: '#1f6de2',
+        fillColor: '#1f6de2',
         fillOpacity: 0.9,
         weight: 2
       }).addTo(mapInstance);
