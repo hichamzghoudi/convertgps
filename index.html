@@ -95,9 +95,10 @@
 
     <div class="map-box">
       <h3>عرض النقطة على الخريطة</h3>
-      <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها، ويمكنك أيضًا النقر على الخريطة لوضع علامة جديدة.</p>
+      <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها، ويمكنك وضع علامة جديدة عبر الضغط على زر "تحديد نقطة على الخريطة" ثم اختيار الموضع على الخريطة.</p>
       <div class="map-wrapper">
         <button type="button" class="gps-btn" onclick="locateUser()" aria-label="إظهار موقعي الحالي"><i class="bi bi-geo-alt-fill"></i></button>
+        <button type="button" class="select-point-btn" id="manualPointSelectBtn" onclick="toggleManualPointSelection()" aria-pressed="false">تحديد نقطة على الخريطة</button>
         <button type="button" class="basemap-btn" id="basemapToggle" onclick="toggleBasemap()" aria-pressed="false">التبديل بين الخرائط</button>
         <div id="map"></div>
       </div>
@@ -258,6 +259,7 @@
   let currentBasemapIndex = 0;
   let conversionMarker = null;
   let userMarker = null;
+  let manualPointSelectionArmed = false;
   let userAccuracyCircle = null;
   let geoWatchId = null;
   let geoWatchTimeoutId = null;
@@ -318,6 +320,38 @@
     }
     const nextIndex = (currentBasemapIndex + 1) % basemapConfigs.length;
     applyBasemapLayer(nextIndex);
+  }
+
+  function toggleManualPointSelection() {
+    if(!mapInstance) {
+      alert('الخريطة غير جاهزة بعد. الرجاء الانتظار قليلًا ثم المحاولة مجددًا.');
+      return;
+    }
+    setManualPointSelectionState(!manualPointSelectionArmed);
+  }
+
+  function setManualPointSelectionState(isActive) {
+    manualPointSelectionArmed = Boolean(isActive);
+    const mapElement = document.getElementById('map');
+    if(mapElement) {
+      mapElement.classList.toggle('map-select-armed', manualPointSelectionArmed);
+    }
+    updateManualPointSelectionUI();
+  }
+
+  function updateManualPointSelectionUI() {
+    const button = document.getElementById('manualPointSelectBtn');
+    if(!button) {
+      return;
+    }
+    if(manualPointSelectionArmed) {
+      button.classList.add('is-armed');
+      button.textContent = 'اضغط على الخريطة الآن';
+    } else {
+      button.classList.remove('is-armed');
+      button.textContent = 'تحديد نقطة على الخريطة';
+    }
+    button.setAttribute('aria-pressed', manualPointSelectionArmed ? 'true' : 'false');
   }
 
   function getConversionMarkerPopupHtml(bodyHtml) {
@@ -400,11 +434,12 @@
   }
 
   function handleMapClick(event) {
-    if(!event || !event.latlng) {
+    if(!manualPointSelectionArmed || !event || !event.latlng) {
       return;
     }
     const latitude = event.latlng.lat;
     const longitude = event.latlng.lng;
+    setManualPointSelectionState(false);
     setDmsInputsFromDecimal(latitude, longitude);
     const latText = formatDMS(decimalToDMS(latitude, true));
     const lonText = formatDMS(decimalToDMS(longitude, false));
@@ -1947,6 +1982,7 @@
   validateAllCoordinateGroups();
   setSingleResultCopyAvailability();
   syncCityClearButtonVisibility();
+  setManualPointSelectionState(false);
 </script>
 
 </body>
