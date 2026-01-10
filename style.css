@@ -415,6 +415,11 @@ button:disabled {
   padding: 4px 0 8px;
 }
 
+.saved-points-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
 .saved-points-list {
   margin: 0;
   padding: 0 6px 0 0;
