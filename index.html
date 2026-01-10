@@ -96,46 +96,42 @@
     <div class="map-box">
       <h3>عرض النقطة على الخريطة</h3>
       <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها، ويمكنك وضع علامة جديدة عبر الضغط على زر "تحديد نقطة على الخريطة" ثم اختيار الموضع على الخريطة.</p>
-      <button type="button" id="mapFullscreenBtn" class="map-fullscreen-btn" onclick="toggleMapFullscreen()" aria-label="تكبير الخريطة لملء الشاشة" aria-pressed="false">تكبير الخريطة</button>
-      <div class="map-wrapper">
-        <div class="dropdown">
-      <button id="mapActionsDropdownToggle" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown">
-        Action
-      </button>
-
-      <ul class="dropdown-menu dropdown">
-        <li>
-          <a class="dropdown-item" href="#" onclick="locateUser(); return false;">
-            <i class="bi bi-geo-alt-fill"></i> موقعي الحالي
-          </a>
-        </li>
-        <li>
-              <a class="dropdown-item" id="manualPointSelectBtn" href="#" onclick="toggleManualPointSelection(); return false;">
-            تحديد نقطة على الخريطة
-          </a>
-        </li>
-        <li>
-              <a class="dropdown-item" id="basemapToggle" href="#" onclick="toggleBasemap(); return false;">
-            التبديل بين الخرائط
-          </a>
-        </li>
-            <li><hr class="dropdown-divider"></li>
+      <div class="map-stage">
+        <div id="map"></div>
+        <button type="button" id="mapFullscreenBtn" class="map-fullscreen-btn" onclick="toggleMapFullscreen()" aria-label="تكبير الخريطة لملء الشاشة" aria-pressed="false">تكبير الخريطة</button>
+        <div class="map-wrapper dropdown">
+          <button id="mapActionsDropdownToggle" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown">Action</button>
+          <ul class="dropdown-menu dropdown-menu-center">
             <li>
-              <a class="dropdown-item saved-points-label" href="#" onclick="return false;">
-                النقط المحددة 
+              <a class="dropdown-item" href="#" onclick="locateUser(); return false;">
+                <i class="bi bi-geo-alt-fill"></i> موقعي الحالي
               </a>
             </li>
-            <li id="savedPointsContainer" class="saved-points-container">
-              <div id="savedPointsEmpty" class="dropdown-item text-muted small">لا توجد نقاط محددة بعد.</div>
-              <ul id="savedPointsList" class="saved-points-list list-unstyled mb-0"></ul>
+            <li>
+              <a class="dropdown-item" id="manualPointSelectBtn" href="#" onclick="toggleManualPointSelection(); return false;">
+                تحديد نقطة على الخريطة
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" id="basemapToggle" href="#" onclick="toggleBasemap(); return false;">
+                التبديل بين الخرائط
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <span class="dropdown-item-text saved-points-label">النقط المحددة</span>
+            </li>
+            <li>
+              <div id="savedPointsContainer" class="px-3">
+                <div id="savedPointsEmpty" class="text-muted small">لا توجد نقاط محددة بعد.</div>
+                <ul id="savedPointsList" class="saved-points-list list-unstyled mb-0"></ul>
+              </div>
             </li>
           </ul>
         </div>
-        </div>
+      </div>
+    </div></div>
 
-      <div id="map"></div>
-    </div>
-  </div>
 
   <div id="batchSection">
     <h3>تحويل عدة قيم</h3>
