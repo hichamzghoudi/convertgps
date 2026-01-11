@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>محول إحداثيات X/Y و Lat/Long</title>
+<title>Conversion Lat Long vers Merchich Maroc</title>
+<meta name="description" content="Conversion des coordonnées Latitude Longitude vers Merchich Maroc (zones 1 à 4) et calcul de distance sur carte.">
 <link rel="icon" href="convertgps.png" type="image/x-jpg">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -17,12 +18,23 @@
 
 </style>
 </head>
-<body dir="rtl">
-
-<div class="container">
-  <img src="convertgps.png" type="image/x-jpg" alt="" style="width: 2rem; margin: auto; display: flex;">
+<body>
+<div class="collapse" id="navbarToggleExternalContent">
+  <div class="bg-dark p-5 d-flex position-fixed ms-5" style="z-index: 1050; border-radius: 0 0.5rem 0.5rem 0;">
+        <img src="convertgps.png" type="image/x-jpg" alt="" style="width: 2rem; margin: auto; display: flex;" >
+        <a href="info.html" class="ms-5">معلومات مفيدة </a>
+        </div>
+    </div>
+    <nav class="navbar navbar-dark bg-dark position-fixed mt-5">
+        <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarToggleExternalContent" aria-controls="navbarToggleExternalContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        </div>
+    </nav>
+  </div>
+<div class="container"  dir="rtl">
   <h4 class="my-3">محول إحداثيات X/Y و Lat/Long (D°M'S'')</h4>
-
   <div class="conversion-header">
     <div class="city-picker ">
       <label class="conversion-label" for="citySearchInput">اختر المدينة (اجباري)</label>
@@ -98,9 +110,10 @@
       <p class="hint">سيتم تحريك العلامة تلقائيًا إلى آخر نقطة تم تحويلها، ويمكنك وضع علامة جديدة عبر الضغط على زر "تحديد نقطة على الخريطة" ثم اختيار الموضع على الخريطة.</p>
       <div class="map-stage">
         <div id="map"></div>
+        <div id="mapStatusMessage" class="map-status-message" role="status" aria-live="polite" hidden></div>
         <button type="button" id="mapFullscreenBtn" class="map-fullscreen-btn" onclick="toggleMapFullscreen()" aria-label="تكبير الخريطة لملء الشاشة" aria-pressed="false">تكبير الخريطة</button>
         <div class="map-wrapper dropdown">
-          <button id="mapActionsDropdownToggle" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown">Action</button>
+          <button id="mapActionsDropdownToggle" class="btn btn-danger dropdown-toggle" data-bs-toggle="dropdown" data-bs-config='{"strategy":"fixed","boundary":"viewport"}'>Action</button>
           <ul class="dropdown-menu dropdown-menu-center">
             <li>
               <a class="dropdown-item" href="#" onclick="locateUser(); return false;">
@@ -110,6 +123,11 @@
             <li>
               <a class="dropdown-item" id="manualPointSelectBtn" href="#" onclick="toggleManualPointSelection(); return false;">
                 تحديد نقطة على الخريطة
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" id="startDistanceToolBtn" href="#" onclick="startDistanceFromMenu(); return false;">
+                ➕ مسافة
               </a>
             </li>
             <li>
@@ -127,6 +145,9 @@
                 <div id="savedPointsEmpty" class="text-muted small">لا توجد نقاط محددة بعد.</div>
                 <ul id="savedPointsList" class="saved-points-list list-unstyled mb-0"></ul>
               </div>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item map-actions-close-btn" onclick="handleMapActionsMenuClose(); return false;">إغلاق القائمة</button>
             </li>
           </ul>
         </div>
@@ -292,8 +313,11 @@
   let userMarker = null;
   let manualPointSelectionArmed = false;
   const savedManualPoints = [];
+  const savedMeasurements = [];
   let manualPointSequence = 1;
+  let measurementSequence = 1;
   let activeSavedPointId = '';
+  let activeMeasurementId = '';
   let mapFullscreenActive = false;
   let userAccuracyCircle = null;
   let geoWatchId = null;
@@ -312,6 +336,20 @@
   const MOROCCO_DOMAIN_ERROR_TEXT = 'النقطة خارج المجال الجغرافي للمغرب';
   const ZONE_MISMATCH_WARNING_TEMPLATE = 'هذه النقطة تقع في {actualZone}، وليس {selectedZone}.';
   let citySuggestionsHideTimeoutId = null;
+  let measurementSelectionState = null;
+  let mapStatusTimeoutId = null;
+  const MAP_STATUS_VISIBILITY_MS = 4500;
+  const measurementLineStyle = {
+    color: '#fb923c',
+    weight: 4,
+    opacity: 0.95,
+    dashArray: '10 7'
+  };
+  const measurementSelectionMarkers = { pointA: null, pointB: null };
+  let mapActionsDropdownCanHide = false;
+  const savedEntryDropdownPortals = new Map();
+  let savedEntryDropdownEventsBound = false;
+  let mapActionsDropdownPortalState = null;
 
   function initMap() {
     const mapElement = document.getElementById('map');
@@ -355,7 +393,6 @@
     }
     const nextIndex = (currentBasemapIndex + 1) % basemapConfigs.length;
     applyBasemapLayer(nextIndex);
-    closeMapActionsDropdown();
   }
 
   function toggleManualPointSelection() {
@@ -364,10 +401,12 @@
       return;
     }
     setManualPointSelectionState(!manualPointSelectionArmed);
-    closeMapActionsDropdown();
   }
 
   function setManualPointSelectionState(isActive) {
+    if(isActive) {
+      cancelMeasurementSelection();
+    }
     manualPointSelectionArmed = Boolean(isActive);
     const mapElement = document.getElementById('map');
     if(mapElement) {
@@ -400,7 +439,170 @@
     if(!dropdownInstance) {
       dropdownInstance = new bootstrap.Dropdown(toggleButton);
     }
+    mapActionsDropdownCanHide = true;
     dropdownInstance.hide();
+    window.setTimeout(() => {
+      mapActionsDropdownCanHide = false;
+    }, 0);
+  }
+
+  function initMapActionsDropdownGuard() {
+    const toggleButton = document.getElementById('mapActionsDropdownToggle');
+    if(!toggleButton || typeof bootstrap === 'undefined' || !bootstrap.Dropdown) {
+      return;
+    }
+    toggleButton.addEventListener('show.bs.dropdown', portalizeMapActionsDropdownMenu);
+    toggleButton.addEventListener('hide.bs.dropdown', (event) => {
+      if(!mapActionsDropdownCanHide) {
+        event.preventDefault();
+      }
+    });
+    toggleButton.addEventListener('hidden.bs.dropdown', restoreMapActionsDropdownMenu);
+  }
+
+  function getMapActionsDropdownElements() {
+    const toggleButton = document.getElementById('mapActionsDropdownToggle');
+    if(!toggleButton) {
+      return { toggleButton: null, menuElement: null };
+    }
+    const menuElement = toggleButton.nextElementSibling;
+    return { toggleButton, menuElement: menuElement && menuElement.classList.contains('dropdown-menu') ? menuElement : null };
+  }
+
+  function getMapActionsPortalHost() {
+    return document.querySelector('.map-stage')
+      || document.querySelector('.map-box')
+      || document.querySelector('.map-wrapper')
+      || document.body;
+  }
+
+  function portalizeMapActionsDropdownMenu() {
+    if(mapActionsDropdownPortalState) {
+      return;
+    }
+    const { menuElement } = getMapActionsDropdownElements();
+    if(!menuElement) {
+      return;
+    }
+    const host = getMapActionsPortalHost();
+    if(!host) {
+      return;
+    }
+    const placeholder = document.createComment('map-actions-menu-home');
+    menuElement.parentNode.insertBefore(placeholder, menuElement);
+    host.appendChild(menuElement);
+    menuElement.classList.add('map-actions-dropdown-portal');
+    mapActionsDropdownPortalState = { menuElement, placeholder };
+  }
+
+  function restoreMapActionsDropdownMenu() {
+    if(!mapActionsDropdownPortalState) {
+      return;
+    }
+    const { menuElement, placeholder } = mapActionsDropdownPortalState;
+    if(menuElement && placeholder) {
+      if(placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(menuElement, placeholder);
+        placeholder.parentNode.removeChild(placeholder);
+      } else {
+        const fallbackParent = document.querySelector('.map-wrapper') || document.querySelector('.map-stage') || document.body;
+        if(fallbackParent) {
+          fallbackParent.appendChild(menuElement);
+        }
+      }
+    }
+    if(menuElement) {
+      menuElement.classList.remove('map-actions-dropdown-portal');
+    }
+    mapActionsDropdownPortalState = null;
+  }
+
+  function handleMapActionsMenuClose() {
+    closeMapActionsDropdown();
+  }
+
+  function setMapStatusMessage(message, { persistent = false } = {}) {
+    const banner = document.getElementById('mapStatusMessage');
+    if(mapStatusTimeoutId) {
+      clearTimeout(mapStatusTimeoutId);
+      mapStatusTimeoutId = null;
+    }
+    if(!banner) {
+      return;
+    }
+    if(!message) {
+      banner.textContent = '';
+      banner.hidden = true;
+      return;
+    }
+    banner.textContent = message;
+    banner.hidden = false;
+    if(!persistent) {
+      mapStatusTimeoutId = window.setTimeout(() => {
+        clearMapStatusMessage();
+      }, MAP_STATUS_VISIBILITY_MS);
+    }
+  }
+
+  function clearMapStatusMessage() {
+    const banner = document.getElementById('mapStatusMessage');
+    if(mapStatusTimeoutId) {
+      clearTimeout(mapStatusTimeoutId);
+      mapStatusTimeoutId = null;
+    }
+    if(banner) {
+      banner.textContent = '';
+      banner.hidden = true;
+    }
+  }
+
+  function setDistanceSelectionMode(isActive) {
+    const mapElement = document.getElementById('map');
+    if(mapElement) {
+      mapElement.classList.toggle('map-distance-armed', Boolean(isActive));
+    }
+  }
+
+  function setMeasurementSelectionMarker(key, endpoint) {
+    if(!mapInstance || (key !== 'pointA' && key !== 'pointB')) {
+      return;
+    }
+    if(!endpoint) {
+      if(measurementSelectionMarkers[key]) {
+        mapInstance.removeLayer(measurementSelectionMarkers[key]);
+        measurementSelectionMarkers[key] = null;
+      }
+      return;
+    }
+    const latlng = [endpoint.lat, endpoint.lon];
+    const label = key === 'pointA' ? 'A' : 'B';
+    if(measurementSelectionMarkers[key]) {
+      measurementSelectionMarkers[key].setLatLng(latlng);
+      return;
+    }
+    measurementSelectionMarkers[key] = L.marker(latlng, {
+      interactive: false,
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="distance-selection-marker">${label}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      })
+    }).addTo(mapInstance);
+  }
+
+  function clearMeasurementSelectionMarkers() {
+    if(!mapInstance) {
+      measurementSelectionMarkers.pointA = null;
+      measurementSelectionMarkers.pointB = null;
+      return;
+    }
+    ['pointA', 'pointB'].forEach((key) => {
+      if(measurementSelectionMarkers[key]) {
+        mapInstance.removeLayer(measurementSelectionMarkers[key]);
+        measurementSelectionMarkers[key] = null;
+      }
+    });
   }
 
   function toggleMapFullscreen() {
@@ -509,11 +711,17 @@
   }
 
   function handleMapClick(event) {
-    if(!manualPointSelectionArmed || !event || !event.latlng) {
+    if(!event || !event.latlng) {
       return;
     }
     const latitude = event.latlng.lat;
     const longitude = event.latlng.lng;
+    if(handleMeasurementPointSelection(latitude, longitude)) {
+      return;
+    }
+    if(!manualPointSelectionArmed) {
+      return;
+    }
     setManualPointSelectionState(false);
     setDmsInputsFromDecimal(latitude, longitude);
     addManualPoint(latitude, longitude);
@@ -543,13 +751,32 @@
     return value.toString().replace(/[&<>"']/g, (char) => lookup[char] || char);
   }
 
+  function getVisibilityToggleUi(isVisible, subjectLabel = '') {
+    const iconClass = isVisible ? 'bi-eye' : 'bi-eye-slash';
+    const action = isVisible ? 'إخفاء' : 'عرض';
+    const ariaLabel = subjectLabel ? `${action} ${subjectLabel}` : action;
+    const statusLabel = isVisible ? 'ظاهر' : 'مخفي';
+    const statusDescription = subjectLabel ? `${subjectLabel} ${statusLabel}` : statusLabel;
+    return {
+      iconHtml: `<i class="bi ${iconClass}" aria-hidden="true"></i>`,
+      ariaLabel,
+      actionLabel: action,
+      statusLabel,
+      statusDescription
+    };
+  }
+
   function findSavedPoint(pointId) {
     return savedManualPoints.find((point) => point.id === pointId) || null;
   }
 
   function getSavedPointsVisibilityStats() {
-    const total = savedManualPoints.length;
-    const visible = savedManualPoints.reduce((count, point) => count + (point.visible ? 1 : 0), 0);
+    const visibilityFlags = [
+      ...savedManualPoints.map((point) => point.visible),
+      ...savedMeasurements.map((measurement) => measurement.visible)
+    ];
+    const total = visibilityFlags.length;
+    const visible = visibilityFlags.reduce((count, flag) => count + (flag ? 1 : 0), 0);
     return { total, visible };
   }
 
@@ -576,7 +803,15 @@
     }
     const payload = {
       manualPointSequence,
-      points: savedManualPoints.map(({ id, name, lat, lon, visible }) => ({ id, name, lat, lon, visible }))
+      measurementSequence,
+      points: savedManualPoints.map(({ id, name, lat, lon, visible }) => ({ id, name, lat, lon, visible })),
+      measurements: savedMeasurements.map(({ id, name, pointA, pointB, visible }) => ({
+        id,
+        name,
+        visible,
+        pointA: { lat: pointA.lat, lon: pointA.lon, refPointId: pointA.refPointId || null },
+        pointB: { lat: pointB.lat, lon: pointB.lon, refPointId: pointB.refPointId || null }
+      }))
     };
     try {
       window.localStorage.setItem(SAVED_POINTS_STORAGE_KEY, JSON.stringify(payload));
@@ -606,6 +841,9 @@
     if(Number.isFinite(payload.manualPointSequence)) {
       manualPointSequence = payload.manualPointSequence;
     }
+    if(Number.isFinite(payload.measurementSequence)) {
+      measurementSequence = payload.measurementSequence;
+    }
     payload.points.forEach((data) => {
       if(!Number.isFinite(data.lat) || !Number.isFinite(data.lon)) {
         return;
@@ -621,6 +859,25 @@
       savedManualPoints.push(point);
       createMarkerForPoint(point);
     });
+    if(Array.isArray(payload.measurements)) {
+      payload.measurements.forEach((data) => {
+        const pointA = createMeasurementEndpoint(data?.pointA?.lat, data?.pointA?.lon, data?.pointA?.refPointId);
+        const pointB = createMeasurementEndpoint(data?.pointB?.lat, data?.pointB?.lon, data?.pointB?.refPointId);
+        if(!pointA || !pointB) {
+          return;
+        }
+        const measurement = {
+          id: data.id || `measurement-${Date.now()}-${measurementSequence++}`,
+          name: typeof data.name === 'string' && data.name.trim() ? data.name.trim() : generateMeasurementNameFromEndpoints(pointA, pointB),
+          pointA,
+          pointB,
+          visible: data.visible !== false,
+          polyline: null
+        };
+        savedMeasurements.push(measurement);
+        createPolylineForMeasurement(measurement);
+      });
+    }
     renderSavedPointsList();
   }
 
@@ -635,7 +892,13 @@
       fillOpacity: 0.95,
       weight: 2
     });
-    marker.on('click', () => {
+    marker.on('click', (event) => {
+      if(handleMeasurementPointSelection(point.lat, point.lon, { refPointId: point.id })) {
+        if(event && event.originalEvent) {
+          event.originalEvent.preventDefault();
+        }
+        return;
+      }
       focusSavedPoint(point.id, { openPopup: true });
     });
     if(point.visible) {
@@ -671,14 +934,15 @@
     const latText = formatDMS(decimalToDMS(point.lat, true));
     const lonText = formatDMS(decimalToDMS(point.lon, false));
     const safeName = escapeHtml(point.name);
-    const visibilityLabel = point.visible ? 'إخفاء على الخريطة' : 'إظهار على الخريطة';
+    const { iconHtml: visibilityIconHtml, ariaLabel: visibilityAriaLabel } = getVisibilityToggleUi(point.visible, 'النقطة');
     const popupHtml = `
       <div class="marker-popover">
         <div class="marker-popover-title">${safeName}</div>
         <div class="marker-popover-body">${wrapDmsHtml(latText, lonText)}</div>
         <div class="marker-popover-actions">
-          <button type="button" class="marker-action-btn" onclick="toggleSavedPointVisibility('${point.id}'); return false;">${visibilityLabel}</button>
+          <button type="button" class="marker-action-btn" onclick="toggleSavedPointVisibility('${point.id}'); return false;" aria-label="${visibilityAriaLabel}" title="${visibilityAriaLabel}">${visibilityIconHtml}</button>
           <button type="button" class="marker-action-btn" onclick="renameSavedPoint('${point.id}'); return false;">تعديل الاسم</button>
+          <button type="button" class="marker-action-btn" onclick="startDistanceFromPoint('${point.id}'); return false;">مسافة</button>
           <button type="button" class="marker-action-btn danger" onclick="removeSavedPoint('${point.id}'); return false;">حذف</button>
         </div>
       </div>
@@ -692,34 +956,664 @@
     if(!listElement || !emptyState) {
       return;
     }
-    if(!savedManualPoints.length) {
+    dismissAllSavedEntryDropdownMenus();
+    initSavedEntryDropdownPortals();
+    const hasPoints = savedManualPoints.length > 0;
+    const hasMeasurements = savedMeasurements.length > 0;
+    if(!hasPoints && !hasMeasurements) {
       listElement.innerHTML = '';
       emptyState.hidden = false;
+      activeSavedPointId = '';
+      activeMeasurementId = '';
       updateSavedPointsBulkButton();
       return;
     }
     emptyState.hidden = true;
-    const listHtml = savedManualPoints.map((point) => {
+    const pointItems = savedManualPoints.map((point) => {
       const isActive = point.id === activeSavedPointId ? ' is-active' : '';
       const safeName = escapeHtml(point.name);
-      const coords = `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`;
-      const visibilityLabel = point.visible ? 'إخفاء' : 'إظهار';
+      const latDmsText = formatDMS(decimalToDMS(point.lat, true));
+      const lonDmsText = formatDMS(decimalToDMS(point.lon, false));
+      const coords = `${latDmsText} • ${lonDmsText}`;
+      const { iconHtml: visibilityIconHtml, statusLabel, statusDescription } = getVisibilityToggleUi(point.visible, 'النقطة');
+      const toggleId = `savedEntryToggle-point-${point.id}`;
+      const menuHtml = getPointActionsMenuHtml(point);
       return `
-        <li class="saved-point-item${isActive}" data-point-id="${point.id}">
-          <button type="button" class="saved-point-link" onclick="focusSavedPoint('${point.id}', { openPopup: true }); return false;">
-            <span class="saved-point-name">${safeName}</span>
-            <span class="saved-point-coords">${coords}</span>
+        <li class="saved-point-item saved-entry-dropdown dropup${isActive}" data-point-id="${point.id}">
+          <button type="button" id="${toggleId}" class="saved-point-link dropdown-toggle" data-bs-toggle="dropdown" data-bs-config='{"strategy":"fixed","boundary":"viewport"}' aria-expanded="false">
+            <div class="saved-point-text">
+              <span class="saved-point-name">${safeName}</span>
+              <span class="saved-point-coords">${coords}</span>
+            </div>
+            <span class="saved-entry-visibility ${point.visible ? 'is-visible' : 'is-hidden'}" aria-label="${statusDescription}" title="${statusDescription}">
+              ${visibilityIconHtml}
+              <span class="saved-entry-status-text">${statusLabel}</span>
+            </span>
           </button>
-          <div class="saved-point-actions">
-            <button type="button" class="saved-point-action-btn" onclick="toggleSavedPointVisibility('${point.id}'); return false;">${visibilityLabel}</button>
-            <button type="button" class="saved-point-action-btn" onclick="renameSavedPoint('${point.id}'); return false;">تعديل</button>
-            <button type="button" class="saved-point-action-btn danger" onclick="removeSavedPoint('${point.id}'); return false;">حذف</button>
+          <div class="dropdown-menu saved-entry-actions-menu" aria-labelledby="${toggleId}">
+            ${menuHtml}
           </div>
         </li>
       `;
-    }).join('');
-    listElement.innerHTML = listHtml;
+    });
+    const measurementItems = savedMeasurements.map((measurement) => {
+      const isActive = measurement.id === activeMeasurementId ? ' is-active' : '';
+      const safeName = escapeHtml(measurement.name);
+      const { iconHtml: visibilityIconHtml, statusLabel, statusDescription } = getVisibilityToggleUi(measurement.visible, 'المسافة');
+      const distanceLabel = formatMeasurementDistance(measurement);
+      const toggleId = `savedEntryToggle-measurement-${measurement.id}`;
+      const menuHtml = getMeasurementActionsMenuHtml(measurement);
+      return `
+        <li class="saved-distance-item saved-entry-dropdown dropup${isActive}" data-measurement-id="${measurement.id}">
+          <button type="button" id="${toggleId}" class="saved-point-link dropdown-toggle" data-bs-toggle="dropdown" data-bs-config='{"strategy":"fixed","boundary":"viewport"}' aria-expanded="false">
+            <div class="saved-point-text">
+              <span class="saved-point-name">${safeName}</span>
+              <span class="saved-distance-value">${distanceLabel}</span>
+            </div>
+            <span class="saved-entry-visibility ${measurement.visible ? 'is-visible' : 'is-hidden'}" aria-label="${statusDescription}" title="${statusDescription}">
+              ${visibilityIconHtml}
+              <span class="saved-entry-status-text">${statusLabel}</span>
+            </span>
+          </button>
+          <div class="dropdown-menu saved-entry-actions-menu" aria-labelledby="${toggleId}">
+            ${menuHtml}
+          </div>
+        </li>
+      `;
+    });
+    listElement.innerHTML = [...pointItems, ...measurementItems].join('');
     updateSavedPointsBulkButton();
+  }
+
+  function getSavedEntryDropdownPortalHost() {
+    if(document && document.body) {
+      return document.body;
+    }
+    return document.querySelector('.map-stage')
+      || document.querySelector('.map-box')
+      || document.querySelector('.map-wrapper');
+  }
+
+  function isSavedEntryDropdownToggle(element) {
+    return Boolean(element
+      && element.classList
+      && element.classList.contains('saved-point-link')
+      && element.closest('.saved-entry-dropdown'));
+  }
+
+  function portalizeSavedEntryDropdownMenu(toggleElement) {
+    if(!toggleElement) {
+      return;
+    }
+    const dropdownRoot = toggleElement.closest('.saved-entry-dropdown');
+    if(!dropdownRoot) {
+      return;
+    }
+    const menu = dropdownRoot.querySelector('.dropdown-menu');
+    if(!menu || savedEntryDropdownPortals.has(menu)) {
+      if(menu) {
+        toggleElement.__savedEntryDropdownMenu = menu;
+      }
+      return;
+    }
+    const host = getSavedEntryDropdownPortalHost();
+    if(!host) {
+      return;
+    }
+    const placeholder = document.createComment('saved-entry-menu-home');
+    dropdownRoot.insertBefore(placeholder, menu);
+    host.appendChild(menu);
+    menu.classList.add('saved-entry-actions-menu-portal');
+    savedEntryDropdownPortals.set(menu, {
+      placeholder,
+      toggle: toggleElement,
+      originParent: dropdownRoot
+    });
+    toggleElement.__savedEntryDropdownMenu = menu;
+  }
+
+  function restoreSavedEntryDropdownMenu(toggleElement, menuElement = null) {
+    const menu = menuElement || (toggleElement ? toggleElement.__savedEntryDropdownMenu : null);
+    if(!menu) {
+      return;
+    }
+    const portalState = savedEntryDropdownPortals.get(menu);
+    if(!portalState) {
+      if(toggleElement && toggleElement.__savedEntryDropdownMenu === menu) {
+        delete toggleElement.__savedEntryDropdownMenu;
+      }
+      return;
+    }
+    const { placeholder, originParent } = portalState;
+    if(placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(menu, placeholder);
+      placeholder.parentNode.removeChild(placeholder);
+    } else {
+      const fallbackParent = originParent || document.getElementById('savedPointsList');
+      if(fallbackParent) {
+        fallbackParent.appendChild(menu);
+      }
+    }
+    menu.classList.remove('saved-entry-actions-menu-portal');
+    savedEntryDropdownPortals.delete(menu);
+    if(toggleElement && toggleElement.__savedEntryDropdownMenu === menu) {
+      delete toggleElement.__savedEntryDropdownMenu;
+    }
+  }
+
+  function dismissAllSavedEntryDropdownMenus() {
+    if(!savedEntryDropdownPortals.size) {
+      return;
+    }
+    const activeMenus = Array.from(savedEntryDropdownPortals.entries());
+    activeMenus.forEach(([menu, state]) => {
+      const toggleElement = state?.toggle || null;
+      if(toggleElement && typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+        const instance = bootstrap.Dropdown.getInstance(toggleElement);
+        if(instance) {
+          instance.hide();
+          return;
+        }
+      }
+      restoreSavedEntryDropdownMenu(toggleElement, menu);
+    });
+  }
+
+  function handleSavedEntryDropdownShow(event) {
+    const toggleElement = event?.target;
+    if(!isSavedEntryDropdownToggle(toggleElement)) {
+      return;
+    }
+    portalizeSavedEntryDropdownMenu(toggleElement);
+  }
+
+  function handleSavedEntryDropdownHide(event) {
+    const toggleElement = event?.target;
+    if(!isSavedEntryDropdownToggle(toggleElement)) {
+      return;
+    }
+    restoreSavedEntryDropdownMenu(toggleElement);
+  }
+
+  function initSavedEntryDropdownPortals() {
+    if(savedEntryDropdownEventsBound) {
+      return;
+    }
+    const listElement = document.getElementById('savedPointsList');
+    if(!listElement) {
+      return;
+    }
+    savedEntryDropdownEventsBound = true;
+    listElement.addEventListener('show.bs.dropdown', handleSavedEntryDropdownShow);
+    listElement.addEventListener('hide.bs.dropdown', handleSavedEntryDropdownHide);
+  }
+
+  function getPointActionsMenuHtml(point) {
+    const safeName = escapeHtml(point.name);
+    const latText = formatDMS(decimalToDMS(point.lat, true));
+    const lonText = formatDMS(decimalToDMS(point.lon, false));
+    const coordsHtml = wrapDmsHtml(latText, lonText);
+    const { actionLabel: visibilityActionLabel, ariaLabel: visibilityAriaLabel } = getVisibilityToggleUi(point.visible, 'النقطة');
+    return `
+      <div class="saved-entry-menu-header">
+        <div class="saved-entry-menu-label">نقطة</div>
+        <div class="saved-entry-menu-title">${safeName}</div>
+        <div class="saved-entry-menu-meta">${coordsHtml}</div>
+      </div>
+      <hr class="dropdown-divider">
+      <button type="button" class="dropdown-item saved-entry-action-item primary" onclick="focusSavedPoint('${point.id}', { openPopup: true }); return false;">انتقال</button>
+      <button type="button" class="dropdown-item saved-entry-action-item" onclick="toggleSavedPointVisibility('${point.id}'); return false;" aria-label="${visibilityAriaLabel}" title="${visibilityAriaLabel}">${visibilityActionLabel}</button>
+      <button type="button" class="dropdown-item saved-entry-action-item" onclick="renameSavedPoint('${point.id}'); return false;">تعديل الاسم</button>
+      <button type="button" class="dropdown-item saved-entry-action-item" onclick="startDistanceFromPoint('${point.id}'); return false;">مسافة</button>
+      <button type="button" class="dropdown-item saved-entry-action-item danger" onclick="removeSavedPoint('${point.id}'); return false;">حذف</button>
+    `;
+  }
+
+  function getMeasurementActionsMenuHtml(measurement) {
+    const safeName = escapeHtml(measurement.name);
+    const distanceLabel = formatMeasurementDistance(measurement);
+    const { actionLabel: visibilityActionLabel, ariaLabel: visibilityAriaLabel } = getVisibilityToggleUi(measurement.visible, 'المسافة');
+    const endpointASummary = formatMeasurementEndpointSummary(measurement.pointA, 'النقطة A');
+    const endpointBSummary = formatMeasurementEndpointSummary(measurement.pointB, 'النقطة B');
+    return `
+      <div class="saved-entry-menu-header">
+        <div class="saved-entry-menu-label">مسافة</div>
+        <div class="saved-entry-menu-title">${safeName}</div>
+        <div class="saved-entry-menu-meta">
+          <div>المسافة: <span class="measurement-distance-value">${distanceLabel}</span></div>
+          <div>${endpointASummary}</div>
+          <div>${endpointBSummary}</div>
+        </div>
+      </div>
+      <hr class="dropdown-divider">
+      <button type="button" class="dropdown-item saved-entry-action-item primary" onclick="focusMeasurement('${measurement.id}', { openPopup: true }); return false;">انتقال</button>
+      <button type="button" class="dropdown-item saved-entry-action-item" onclick="toggleMeasurementVisibility('${measurement.id}'); return false;" aria-label="${visibilityAriaLabel}" title="${visibilityAriaLabel}">${visibilityActionLabel}</button>
+      <button type="button" class="dropdown-item saved-entry-action-item" onclick="renameMeasurement('${measurement.id}'); return false;">تعديل الاسم</button>
+      <button type="button" class="dropdown-item saved-entry-action-item" onclick="editMeasurementEndpoint('${measurement.id}', 'pointA'); return false;">تعديل النقطة A</button>
+      <button type="button" class="dropdown-item saved-entry-action-item" onclick="editMeasurementEndpoint('${measurement.id}', 'pointB'); return false;">تعديل النقطة B</button>
+      <button type="button" class="dropdown-item saved-entry-action-item danger" onclick="removeMeasurement('${measurement.id}'); return false;">حذف</button>
+    `;
+  }
+
+  function createMeasurementEndpoint(lat, lon, refPointId = null) {
+    const numericLat = Number(lat);
+    const numericLon = Number(lon);
+    if(!Number.isFinite(numericLat) || !Number.isFinite(numericLon)) {
+      return null;
+    }
+    return {
+      lat: numericLat,
+      lon: numericLon,
+      refPointId: typeof refPointId === 'string' ? refPointId : null
+    };
+  }
+
+  function findMeasurement(measurementId) {
+    return savedMeasurements.find((measurement) => measurement.id === measurementId) || null;
+  }
+
+  function generateMeasurementName() {
+    const base = 'A → B';
+    const label = measurementSequence === 1 ? base : `${base} (${measurementSequence})`;
+    measurementSequence += 1;
+    return label;
+  }
+
+  function getPointLabelFromReference(refPointId) {
+    if(!refPointId) {
+      return null;
+    }
+    const point = findSavedPoint(refPointId);
+    return point ? point.name : null;
+  }
+
+  function generateMeasurementNameFromEndpoints(pointA, pointB) {
+    const labelA = pointA ? getPointLabelFromReference(pointA.refPointId) : null;
+    const labelB = pointB ? getPointLabelFromReference(pointB.refPointId) : null;
+    if(labelA && labelB) {
+      return `${labelA} → ${labelB}`;
+    }
+    return generateMeasurementName();
+  }
+
+  function formatMeasurementEndpointSummary(endpoint, label) {
+    const safeLabel = escapeHtml(label);
+    if(!endpoint) {
+      return `${safeLabel}: —`;
+    }
+    const referencedName = endpoint.refPointId ? getPointLabelFromReference(endpoint.refPointId) : null;
+    if(referencedName) {
+      return `${safeLabel}: ${escapeHtml(referencedName)}`;
+    }
+    const latText = formatDMS(decimalToDMS(endpoint.lat, true));
+    const lonText = formatDMS(decimalToDMS(endpoint.lon, false));
+    return `${safeLabel}: ${latText} • ${lonText}`;
+  }
+
+  function computeDistanceMeters(pointA, pointB) {
+    if(!pointA || !pointB) {
+      return NaN;
+    }
+    const toRadians = (value) => value * Math.PI / 180;
+    const lat1 = toRadians(pointA.lat);
+    const lat2 = toRadians(pointB.lat);
+    const deltaLat = toRadians(pointB.lat - pointA.lat);
+    const deltaLon = toRadians(pointB.lon - pointA.lon);
+    const sinLat = Math.sin(deltaLat / 2);
+    const sinLon = Math.sin(deltaLon / 2);
+    const a = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const EARTH_RADIUS_METERS = 6371000;
+    return EARTH_RADIUS_METERS * c;
+  }
+
+  function formatMeasurementDistance(measurement) {
+    const meters = computeDistanceMeters(measurement?.pointA, measurement?.pointB);
+    if(!Number.isFinite(meters)) {
+      return '—';
+    }
+    if(meters < 1000) {
+      return `${Math.round(meters)} m`;
+    }
+    return `${(meters / 1000).toFixed(2)} km`;
+  }
+
+  function createPolylineForMeasurement(measurement) {
+    if(!measurement || !mapInstance) {
+      return null;
+    }
+    const latlngs = [
+      [measurement.pointA.lat, measurement.pointA.lon],
+      [measurement.pointB.lat, measurement.pointB.lon]
+    ];
+    if(!measurement.polyline) {
+      measurement.polyline = L.polyline(latlngs, measurementLineStyle);
+      measurement.polyline.on('click', (event) => {
+        if(event && event.originalEvent) {
+          event.originalEvent.preventDefault();
+        }
+        focusMeasurement(measurement.id, { openPopup: true });
+        if(event && event.latlng) {
+          measurement.polyline.openPopup(event.latlng);
+        }
+      });
+    } else {
+      measurement.polyline.setLatLngs(latlngs);
+    }
+    if(measurement.visible) {
+      measurement.polyline.addTo(mapInstance);
+    } else if(mapInstance.hasLayer(measurement.polyline)) {
+      mapInstance.removeLayer(measurement.polyline);
+    }
+    updateMeasurementPopup(measurement);
+    return measurement.polyline;
+  }
+
+  function updateMeasurementPopup(measurement) {
+    if(!measurement || !measurement.polyline) {
+      return;
+    }
+    const safeName = escapeHtml(measurement.name);
+    const { iconHtml: visibilityIconHtml, ariaLabel: visibilityAriaLabel } = getVisibilityToggleUi(measurement.visible, 'المسافة');
+    const distanceLabel = formatMeasurementDistance(measurement);
+    const popupHtml = `
+      <div class="marker-popover">
+        <div class="marker-popover-title">${safeName}</div>
+        <div class="marker-popover-body">
+          <span class="measurement-distance-value">${distanceLabel}</span>
+        </div>
+        <div class="marker-popover-actions">
+          <button type="button" class="marker-action-btn" onclick="renameMeasurement('${measurement.id}'); return false;">تعديل الاسم</button>
+          <button type="button" class="marker-action-btn" onclick="toggleMeasurementVisibility('${measurement.id}'); return false;" aria-label="${visibilityAriaLabel}" title="${visibilityAriaLabel}">${visibilityIconHtml}</button>
+          <button type="button" class="marker-action-btn" onclick="editMeasurementEndpoint('${measurement.id}', 'pointA'); return false;">تعديل النقطة A</button>
+          <button type="button" class="marker-action-btn" onclick="editMeasurementEndpoint('${measurement.id}', 'pointB'); return false;">تعديل النقطة B</button>
+          <button type="button" class="marker-action-btn danger" onclick="removeMeasurement('${measurement.id}'); return false;">حذف</button>
+        </div>
+      </div>
+    `;
+    measurement.polyline.bindPopup(popupHtml);
+  }
+
+  function addMeasurement(pointA, pointB, options = {}) {
+    const endpointA = createMeasurementEndpoint(pointA?.lat, pointA?.lon, pointA?.refPointId);
+    const endpointB = createMeasurementEndpoint(pointB?.lat, pointB?.lon, pointB?.refPointId);
+    if(!endpointA || !endpointB) {
+      return null;
+    }
+    const measurement = {
+      id: options.id || `measurement-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+      name: typeof options.name === 'string' && options.name.trim() ? options.name.trim() : generateMeasurementNameFromEndpoints(endpointA, endpointB),
+      pointA: endpointA,
+      pointB: endpointB,
+      visible: options.visible !== false,
+      polyline: null
+    };
+    savedMeasurements.push(measurement);
+    if(mapInstance) {
+      createPolylineForMeasurement(measurement);
+    }
+    focusMeasurement(measurement.id, { openPopup: true, skipRender: true });
+    renderSavedPointsList();
+    persistSavedPointsState();
+    return measurement;
+  }
+
+  function removeMeasurement(measurementId) {
+    const index = savedMeasurements.findIndex((measurement) => measurement.id === measurementId);
+    if(index === -1) {
+      return;
+    }
+    const [removed] = savedMeasurements.splice(index, 1);
+    if(measurementSelectionState && measurementSelectionState.measurementId === measurementId) {
+      cancelMeasurementSelection();
+    }
+    if(removed && removed.polyline && mapInstance) {
+      mapInstance.removeLayer(removed.polyline);
+    }
+    if(activeMeasurementId === measurementId) {
+      activeMeasurementId = '';
+      if(mapInstance) {
+        mapInstance.closePopup();
+      }
+    }
+    renderSavedPointsList();
+    persistSavedPointsState();
+  }
+
+  function toggleMeasurementVisibility(measurementId) {
+    const measurement = findMeasurement(measurementId);
+    if(!measurement) {
+      return;
+    }
+    if(!mapInstance) {
+      measurement.visible = !measurement.visible;
+      if(!measurement.visible && activeMeasurementId === measurementId) {
+        activeMeasurementId = '';
+      }
+      renderSavedPointsList();
+      persistSavedPointsState();
+      return;
+    }
+    if(measurement.visible) {
+      if(measurement.polyline) {
+        mapInstance.removeLayer(measurement.polyline);
+      }
+      measurement.visible = false;
+      if(activeMeasurementId === measurementId) {
+        activeMeasurementId = '';
+        mapInstance.closePopup();
+      }
+    } else {
+      measurement.visible = true;
+      createPolylineForMeasurement(measurement);
+    }
+    renderSavedPointsList();
+    persistSavedPointsState();
+  }
+
+  function focusMeasurement(measurementId, { openPopup = false, skipRender = false, pan = true } = {}) {
+    const measurement = findMeasurement(measurementId);
+    if(!measurement) {
+      return;
+    }
+    activeMeasurementId = measurementId;
+    activeSavedPointId = '';
+    if(!mapInstance) {
+      if(!skipRender) {
+        renderSavedPointsList();
+      }
+      return;
+    }
+    if(!measurement.polyline || !mapInstance.hasLayer(measurement.polyline)) {
+      createPolylineForMeasurement(measurement);
+    }
+    measurement.visible = true;
+    const polyline = measurement.polyline;
+    if(polyline) {
+      const bounds = polyline.getBounds();
+      if(pan && bounds.isValid()) {
+        mapInstance.fitBounds(bounds, { padding: [28, 28], maxZoom: 18 });
+      }
+      if(openPopup) {
+        polyline.openPopup();
+      }
+    }
+    if(!skipRender) {
+      renderSavedPointsList();
+    }
+  }
+
+  function renameMeasurement(measurementId) {
+    const measurement = findMeasurement(measurementId);
+    if(!measurement) {
+      return;
+    }
+    const nextName = window.prompt('أدخل اسم المسافة الجديد:', measurement.name);
+    if(nextName === null) {
+      return;
+    }
+    const trimmed = nextName.trim();
+    if(!trimmed) {
+      alert('الاسم لا يمكن أن يكون فارغًا.');
+      return;
+    }
+    measurement.name = trimmed;
+    updateMeasurementPopup(measurement);
+    renderSavedPointsList();
+    persistSavedPointsState();
+  }
+
+  function editMeasurementEndpoint(measurementId, endpointKey) {
+    const measurement = findMeasurement(measurementId);
+    if(!measurement || (endpointKey !== 'pointA' && endpointKey !== 'pointB')) {
+      return;
+    }
+    cancelMeasurementSelection();
+    setManualPointSelectionState(false);
+    measurementSelectionState = {
+      mode: 'edit',
+      stage: 'awaiting-edit-point',
+      measurementId,
+      endpointKey,
+      pointA: null
+    };
+    setDistanceSelectionMode(true);
+    clearMeasurementSelectionMarkers();
+    setMeasurementSelectionMarker('pointA', measurement.pointA);
+    setMeasurementSelectionMarker('pointB', measurement.pointB);
+    updateMeasurementSelectionPrompt();
+  }
+
+  function applyMeasurementEndpointUpdate(measurementId, endpointKey, endpoint) {
+    const measurement = findMeasurement(measurementId);
+    if(!measurement || !endpoint || (endpointKey !== 'pointA' && endpointKey !== 'pointB')) {
+      return null;
+    }
+    measurement[endpointKey] = endpoint;
+    if(mapInstance) {
+      createPolylineForMeasurement(measurement);
+    }
+    renderSavedPointsList();
+    persistSavedPointsState();
+    return endpointKey === 'pointA' ? 'النقطة A' : 'النقطة B';
+  }
+
+  function startDistanceFromPoint(pointId) {
+    if(!mapInstance) {
+      alert('الخريطة غير جاهزة بعد. الرجاء الانتظار قليلًا ثم المحاولة مجددًا.');
+      return;
+    }
+    const point = findSavedPoint(pointId);
+    if(!point) {
+      alert('تعذر العثور على هذه النقطة.');
+      return;
+    }
+    cancelMeasurementSelection();
+    setManualPointSelectionState(false);
+    measurementSelectionState = {
+      mode: 'create',
+      stage: 'awaiting-second-point',
+      pointA: createMeasurementEndpoint(point.lat, point.lon, point.id)
+    };
+    setDistanceSelectionMode(true);
+    clearMeasurementSelectionMarkers();
+    setMeasurementSelectionMarker('pointA', measurementSelectionState.pointA);
+    setMeasurementSelectionMarker('pointB', null);
+    updateMeasurementSelectionPrompt();
+  }
+
+  function startDistanceFromMenu() {
+    if(!mapInstance) {
+      alert('الخريطة غير جاهزة بعد. الرجاء الانتظار قليلًا ثم المحاولة مجددًا.');
+      return;
+    }
+    cancelMeasurementSelection();
+    setManualPointSelectionState(false);
+    measurementSelectionState = {
+      mode: 'create',
+      stage: 'awaiting-first-point',
+      pointA: null
+    };
+    setDistanceSelectionMode(true);
+    clearMeasurementSelectionMarkers();
+    updateMeasurementSelectionPrompt();
+  }
+
+  function cancelMeasurementSelection(showNotice = false) {
+    const wasActive = Boolean(measurementSelectionState);
+    measurementSelectionState = null;
+    clearMeasurementSelectionMarkers();
+    setDistanceSelectionMode(false);
+    clearMapStatusMessage();
+    if(showNotice && wasActive) {
+      setMapStatusMessage('تم إلغاء اختيار المسافة.', { persistent: false });
+    }
+  }
+
+  function updateMeasurementSelectionPrompt() {
+    if(!measurementSelectionState) {
+      clearMapStatusMessage();
+      return;
+    }
+    let message = 'اختر نقطة أخرى على الخريطة';
+    if(measurementSelectionState.stage === 'awaiting-first-point') {
+      message = 'اختر نقطة البداية على الخريطة';
+    } else if(measurementSelectionState.stage === 'awaiting-edit-point') {
+      message = measurementSelectionState.endpointKey === 'pointA'
+        ? 'اختر موقعًا جديدًا للنقطة A'
+        : 'اختر موقعًا جديدًا للنقطة B';
+    }
+    setMapStatusMessage(message, { persistent: true });
+  }
+
+  function finalizeMeasurementCreation(pointB) {
+    if(!measurementSelectionState || !measurementSelectionState.pointA || !pointB) {
+      cancelMeasurementSelection();
+      return;
+    }
+    addMeasurement(measurementSelectionState.pointA, pointB);
+    cancelMeasurementSelection();
+    setMapStatusMessage('تم إنشاء المسافة بنجاح.', { persistent: false });
+  }
+
+  function handleMeasurementPointSelection(lat, lon, { refPointId = null } = {}) {
+    if(!measurementSelectionState) {
+      return false;
+    }
+    const endpoint = createMeasurementEndpoint(lat, lon, refPointId);
+    if(!endpoint) {
+      return true;
+    }
+    if(measurementSelectionState.stage === 'awaiting-first-point') {
+      measurementSelectionState.pointA = endpoint;
+      measurementSelectionState.stage = 'awaiting-second-point';
+      setMeasurementSelectionMarker('pointA', endpoint);
+      setMeasurementSelectionMarker('pointB', null);
+      updateMeasurementSelectionPrompt();
+      return true;
+    }
+    if(measurementSelectionState.stage === 'awaiting-second-point') {
+      if(!measurementSelectionState.pointA) {
+        measurementSelectionState.pointA = endpoint;
+        setMeasurementSelectionMarker('pointA', endpoint);
+        setMeasurementSelectionMarker('pointB', null);
+        updateMeasurementSelectionPrompt();
+        return true;
+      }
+      setMeasurementSelectionMarker('pointB', endpoint);
+      finalizeMeasurementCreation(endpoint);
+      return true;
+    }
+    if(measurementSelectionState.stage === 'awaiting-edit-point') {
+      setMeasurementSelectionMarker(measurementSelectionState.endpointKey, endpoint);
+      const label = applyMeasurementEndpointUpdate(measurementSelectionState.measurementId, measurementSelectionState.endpointKey, endpoint);
+      cancelMeasurementSelection();
+      if(label) {
+        setMapStatusMessage(`تم تحديث ${label}.`, { persistent: false });
+      }
+      return true;
+    }
+    return false;
   }
 
   function toggleAllSavedPointsVisibility() {
@@ -746,10 +1640,33 @@
     });
     if(!shouldShow) {
       activeSavedPointId = '';
+      activeMeasurementId = '';
       if(mapInstance) {
         mapInstance.closePopup();
       }
     }
+    savedMeasurements.forEach((measurement) => {
+      if(!mapInstance) {
+        measurement.visible = shouldShow;
+        return;
+      }
+      if(shouldShow) {
+        if(!measurement.visible) {
+          measurement.visible = true;
+          if(!measurement.polyline) {
+            createPolylineForMeasurement(measurement);
+          } else {
+            measurement.polyline.addTo(mapInstance);
+            updateMeasurementPopup(measurement);
+          }
+        }
+      } else if(measurement.visible) {
+        if(measurement.polyline) {
+          mapInstance.removeLayer(measurement.polyline);
+        }
+        measurement.visible = false;
+      }
+    });
     renderSavedPointsList();
     persistSavedPointsState();
   }
@@ -775,7 +1692,7 @@
     persistSavedPointsState();
   }
 
-  function focusSavedPoint(pointId, { openPopup = false, zoom = 15, skipRender = false } = {}) {
+  function focusSavedPoint(pointId, { openPopup = false, zoom = 15, skipRender = false, pan = true } = {}) {
     const point = findSavedPoint(pointId);
     if(!point || !mapInstance) {
       return;
@@ -786,8 +1703,11 @@
       updateSavedPointPopup(point);
       persistSavedPointsState();
     }
-    mapInstance.setView([point.lat, point.lon], zoom);
+    if(pan) {
+      mapInstance.setView([point.lat, point.lon], zoom);
+    }
     activeSavedPointId = pointId;
+    activeMeasurementId = '';
     if(openPopup && point.marker) {
       point.marker.openPopup();
     }
@@ -844,8 +1764,6 @@
       alert('GPS غير مدعوم في هذا المتصفح');
       return;
     }
-
-    closeMapActionsDropdown();
 
     stopGeoWatch();
     coarseLocationWarned = false;
@@ -2348,6 +3266,17 @@
     citySuggestionsListElement.addEventListener('click', handleCitySuggestionClick);
   }
   document.addEventListener('click', handleOutsideCitySuggestionClick);
+  document.addEventListener('keydown', (event) => {
+    if(event.key === 'Escape') {
+      if(measurementSelectionState) {
+        cancelMeasurementSelection(true);
+        return;
+      }
+      if(manualPointSelectionArmed) {
+        setManualPointSelectionState(false);
+      }
+    }
+  });
   const conversionTypeElement = document.getElementById('conversionType');
   if(conversionTypeElement) {
     conversionTypeElement.addEventListener('change', () => {
@@ -2372,6 +3301,8 @@
   syncCityClearButtonVisibility();
   setManualPointSelectionState(false);
   updateMapFullscreenUI();
+  initMapActionsDropdownGuard();
+  initSavedEntryDropdownPortals();
   renderSavedPointsList();
 </script>
 
