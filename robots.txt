@@ -1,4 +1,7 @@
 User-agent: *
+Disallow: /node_modules/
+Disallow: /.venv/
+Disallow: /.git/
 Allow: /
 
 Sitemap: https://convertgps.site/sitemap.xml
